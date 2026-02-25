@@ -3,6 +3,18 @@ node_modules/
 
 # Build output
 dist/
+.expo/
+web-build/
+
+# Native builds
+ios/
+android/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
 
 # Logs
 *.log
@@ -12,6 +24,7 @@ npm-debug.log*
 .env
 .env.local
 .env.*.local
+.env.production
 
 # Editor directories
 .idea/
@@ -26,3 +39,12 @@ Thumbs.db
 # Cache
 .cache/
 .eslintcache
+
+# Expo
+expo-env.d.ts
+
+# Testing
+coverage/
+
+# TypeScript
+*.tsbuildinfo

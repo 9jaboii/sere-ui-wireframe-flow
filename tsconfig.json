@@ -1,0 +1,41 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./*"
+      ],
+      "@/lib/*": [
+        "lib/*"
+      ],
+      "@/types/*": [
+        "types/*"
+      ],
+      "@/hooks/*": [
+        "hooks/*"
+      ],
+      "@/stores/*": [
+        "stores/*"
+      ],
+      "@/constants/*": [
+        "constants/*"
+      ],
+      "@/screens/*": [
+        "screens/*"
+      ],
+      "@/services/*": [
+        "services/*"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "web-reference"
+  ]
+}

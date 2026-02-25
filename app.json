@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "SERE",
+    "slug": "sere-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "scheme": "sere",
+    "splash": {
+      "backgroundColor": "#000000"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.sere.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "SERE needs camera access for profile photos and verification.",
+        "NSPhotoLibraryUsageDescription": "SERE needs photo library access to upload profile pictures."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#000000"
+      },
+      "package": "com.sere.mobile",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE"
+      ]
+    },
+    "plugins": [
+      "expo-secure-store"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id"
+      }
+    }
+  }
+}
