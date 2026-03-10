@@ -8,50 +8,111 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useActivityStore } from '../stores/activityStore';
+import { useAuthStore } from '../stores/authStore';
+import { ActivityCategory, SkillLevel } from '../types/database';
+
+const categories: { label: string; value: ActivityCategory }[] = [
+  { label: 'Sport / Gym', value: 'sport_gym' },
+  { label: 'Casual Hangout', value: 'casual_hangout' },
+  { label: 'Party', value: 'party' },
+  { label: 'Other', value: 'other' },
+];
+
+const skillLevels: { label: string; value: SkillLevel }[] = [
+  { label: 'All skill levels welcome', value: 'just_for_fun' },
+  { label: 'Beginners only', value: 'beginner' },
+  { label: 'Intermediate players', value: 'intermediate' },
+  { label: 'Advanced players', value: 'advanced' },
+];
 
 export default function CreatePostScreen({ navigation }: any) {
-  const [activityCategory, setActivityCategory] = useState('');
-  const [activityName, setActivityName] = useState('');
+  const [activityCategory, setActivityCategory] = useState<ActivityCategory | ''>('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [maxAttendees, setMaxAttendees] = useState('');
-  const [skillLevel, setSkillLevel] = useState('');
+  const [skillLevel, setSkillLevel] = useState<SkillLevel | ''>('');
   const [eventLink, setEventLink] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const categories = ['Sport / Gym', 'Casual Hangout', 'Party', 'Other'];
-  const skillLevels = [
-    'All skill levels welcome',
-    'Beginners only',
-    'Intermediate players',
-    'Advanced players',
-    'Just for fun (any level)',
-  ];
+  const { user } = useAuthStore();
+  const { createActivity } = useActivityStore();
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!activityCategory || !description || !location || !date || !time || !maxAttendees) {
       Alert.alert('Missing Fields', 'Please fill in all required fields.');
       return;
     }
 
-    if (activityCategory === 'Sport / Gym' && !skillLevel) {
+    if (activityCategory === 'sport_gym' && !skillLevel) {
       Alert.alert('Skill Level Required', 'Please select a skill level for Sport / Gym activities');
       return;
     }
 
-    Alert.alert('Success!', 'Your activity has been posted.', [
-      { text: 'OK', onPress: () => navigation.goBack() },
-    ]);
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in to create an activity.');
+      return;
+    }
+
+    const spotsTotal = parseInt(maxAttendees, 10);
+    if (isNaN(spotsTotal) || spotsTotal < 1 || spotsTotal > 12) {
+      Alert.alert('Invalid', 'Number of people must be between 1 and 12.');
+      return;
+    }
+
+    // Parse date: expect MM/DD/YYYY
+    const dateParts = date.split('/');
+    let eventDate: string;
+    if (dateParts.length === 3) {
+      const [month, day, year] = dateParts;
+      eventDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    } else {
+      Alert.alert('Invalid Date', 'Please enter date as MM/DD/YYYY.');
+      return;
+    }
+
+    // Parse time: expect HH:MM (24h or simple)
+    const eventTime = time.includes(':') ? `${time}:00` : `${time}:00:00`;
+
+    setIsSubmitting(true);
+
+    const { error } = await createActivity({
+      host_user_id: user.id,
+      category: activityCategory,
+      skill_level: activityCategory === 'sport_gym' && skillLevel ? skillLevel : null,
+      description,
+      event_date: eventDate,
+      event_time: eventTime,
+      location_text: location,
+      spots_total: spotsTotal,
+      external_link: eventLink || null,
+    });
+
+    setIsSubmitting(false);
+
+    if (error) {
+      Alert.alert('Error', error.message || 'Failed to create activity.');
+    } else {
+      Alert.alert('Success!', 'Your activity has been posted.', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    }
   };
 
   const handleAddPhoto = () => {
     // Mock photo - in real app would use expo-image-picker
     setPhotoUri('https://images.unsplash.com/photo-1517457373958-b7bdd4587205?w=400');
+  };
+
+  const getCategoryLabel = (value: ActivityCategory) => {
+    return categories.find((c) => c.value === value)?.label || '';
   };
 
   return (
@@ -79,57 +140,45 @@ export default function CreatePostScreen({ navigation }: any) {
           <View style={styles.categoryGrid}>
             {categories.map((cat) => (
               <TouchableOpacity
-                key={cat}
+                key={cat.value}
                 style={[
                   styles.categoryButton,
-                  activityCategory === cat && styles.categoryButtonActive,
+                  activityCategory === cat.value && styles.categoryButtonActive,
                 ]}
-                onPress={() => setActivityCategory(cat)}
+                onPress={() => setActivityCategory(cat.value)}
               >
                 <Text
                   style={[
                     styles.categoryButtonText,
-                    activityCategory === cat && styles.categoryButtonTextActive,
+                    activityCategory === cat.value && styles.categoryButtonTextActive,
                   ]}
                 >
-                  {cat}
+                  {cat.label}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          {activityCategory === 'Other' && (
-            <>
-              <Text style={styles.label}>Custom Activity *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Describe your activity"
-                value={activityName}
-                onChangeText={setActivityName}
-              />
-            </>
-          )}
-
-          {activityCategory === 'Sport / Gym' && (
+          {activityCategory === 'sport_gym' && (
             <>
               <Text style={styles.label}>Skill Level</Text>
               <View style={styles.skillLevelContainer}>
                 {skillLevels.map((level) => (
                   <TouchableOpacity
-                    key={level}
+                    key={level.value}
                     style={[
                       styles.skillLevelButton,
-                      skillLevel === level && styles.skillLevelButtonActive,
+                      skillLevel === level.value && styles.skillLevelButtonActive,
                     ]}
-                    onPress={() => setSkillLevel(level)}
+                    onPress={() => setSkillLevel(level.value)}
                   >
                     <Text
                       style={[
                         styles.skillLevelText,
-                        skillLevel === level && styles.skillLevelTextActive,
+                        skillLevel === level.value && styles.skillLevelTextActive,
                       ]}
                     >
-                      {level}
+                      {level.label}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -223,8 +272,16 @@ export default function CreatePostScreen({ navigation }: any) {
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <Text style={styles.submitButtonText}>Post Activity</Text>
+        <TouchableOpacity
+          style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+          onPress={handleSubmit}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.submitButtonText}>Post Activity</Text>
+          )}
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />
@@ -391,6 +448,9 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
   },
   submitButtonText: {
     color: '#ffffff',

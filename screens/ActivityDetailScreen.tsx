@@ -1,41 +1,148 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useActivityStore } from '../stores/activityStore';
+import { useAuthStore } from '../stores/authStore';
+import { getCategoryLabel, getInitials } from '../constants';
+import { JoinRequestWithUser } from '../types/database';
+import { supabase } from '../lib/supabase';
 
 export default function ActivityDetailScreen({ navigation, route }: any) {
   const { postId } = route.params;
+  const [attendees, setAttendees] = useState<JoinRequestWithUser[]>([]);
+  const [isJoining, setIsJoining] = useState(false);
+  const [hasRequested, setHasRequested] = useState(false);
 
-  // Mock data
-  const activity = {
-    id: postId,
-    user: {
-      name: 'Alex Chen',
-      initials: 'AC',
-      avatarColor: '#3B82F6',
-    },
-    category: 'Sport / Gym',
-    skillLevel: 'Intermediate',
-    description: 'Who wants to play tennis at Rock Creek Park at 6pm?',
-    location: 'Rock Creek Park, DC',
-    date: 'Today',
-    time: '6:00 PM',
-    spotsNeeded: 1,
-    maxAttendees: 4,
-    image: 'https://images.unsplash.com/photo-1564769353575-73f33a36d84f?w=600',
-    attendees: [
-      { name: 'Mike Davis', initials: 'MD', avatarColor: '#F97316' },
-      { name: 'Sarah Williams', initials: 'SW', avatarColor: '#EC4899' },
-      { name: 'Jordan Kim', initials: 'JK', avatarColor: '#22C55E' },
-    ],
+  const { user } = useAuthStore();
+  const { currentActivity, isLoading, fetchActivity, requestToJoin } = useActivityStore();
+
+  useEffect(() => {
+    fetchActivity(postId);
+    fetchAttendees();
+    checkExistingRequest();
+  }, [postId]);
+
+  const fetchAttendees = async () => {
+    const { data } = await supabase
+      .from('join_requests')
+      .select(`
+        *,
+        requester:users!requester_id (
+          id,
+          first_name,
+          last_name,
+          avatar_color
+        )
+      `)
+      .eq('activity_id', postId)
+      .eq('status', 'accepted');
+
+    if (data) {
+      setAttendees(data as JoinRequestWithUser[]);
+    }
   };
+
+  const checkExistingRequest = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('join_requests')
+      .select('id')
+      .eq('activity_id', postId)
+      .eq('requester_id', user.id)
+      .maybeSingle();
+
+    setHasRequested(!!data);
+  };
+
+  const handleJoinRequest = async () => {
+    if (!user) return;
+    if (hasRequested) {
+      Alert.alert('Already Requested', 'You have already requested to join this activity.');
+      return;
+    }
+
+    setIsJoining(true);
+    const { error } = await requestToJoin(postId, user.id);
+    setIsJoining(false);
+
+    if (error) {
+      Alert.alert('Error', error.message || 'Failed to request to join.');
+    } else {
+      setHasRequested(true);
+      Alert.alert('Request Sent!', 'The host will review your request.');
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    if (date.toDateString() === today.toDateString()) return 'Today';
+    if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  };
+
+  const formatTime = (timeStr: string) => {
+    const [hours, minutes] = timeStr.split(':');
+    const h = parseInt(hours, 10);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    return `${h12}:${minutes} ${ampm}`;
+  };
+
+  if (isLoading && !currentActivity) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Activity Details</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        <View style={styles.loadingState}>
+          <ActivityIndicator size="large" color="#000" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!currentActivity) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Activity Details</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        <View style={styles.loadingState}>
+          <Text style={styles.errorText}>Activity not found.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const activity = currentActivity;
+  const hostName = `${activity.host.first_name} ${activity.host.last_name}`;
+  const hostInitials = getInitials(activity.host.first_name, activity.host.last_name);
+  const categoryLabel = getCategoryLabel(activity.category);
+  const skillLabel = activity.skill_level
+    ? activity.skill_level.charAt(0).toUpperCase() + activity.skill_level.slice(1).replace('_', ' ')
+    : null;
+  const isHost = user?.id === activity.host_user_id;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -51,20 +158,15 @@ export default function ActivityDetailScreen({ navigation, route }: any) {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Image */}
-        {activity.image && (
-          <Image source={{ uri: activity.image }} style={styles.image} />
-        )}
-
         {/* Host Info */}
         <View style={styles.section}>
           <View style={styles.hostRow}>
-            <View style={[styles.avatar, { backgroundColor: activity.user.avatarColor }]}>
-              <Text style={styles.avatarText}>{activity.user.initials}</Text>
+            <View style={[styles.avatar, { backgroundColor: activity.host.avatar_color || '#3B82F6' }]}>
+              <Text style={styles.avatarText}>{hostInitials}</Text>
             </View>
             <View style={styles.hostInfo}>
               <Text style={styles.hostLabel}>Hosted by</Text>
-              <Text style={styles.hostName}>{activity.user.name}</Text>
+              <Text style={styles.hostName}>{hostName}</Text>
             </View>
             <TouchableOpacity style={styles.favoriteButton}>
               <Ionicons name="star-outline" size={24} color="#000" />
@@ -76,11 +178,11 @@ export default function ActivityDetailScreen({ navigation, route }: any) {
         <View style={styles.section}>
           <View style={styles.badges}>
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>{activity.category}</Text>
+              <Text style={styles.badgeText}>{categoryLabel}</Text>
             </View>
-            {activity.skillLevel && (
+            {skillLabel && (
               <View style={[styles.badge, styles.badgeSecondary]}>
-                <Text style={styles.badgeText}>{activity.skillLevel}</Text>
+                <Text style={styles.badgeText}>{skillLabel}</Text>
               </View>
             )}
           </View>
@@ -94,7 +196,7 @@ export default function ActivityDetailScreen({ navigation, route }: any) {
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Location</Text>
-                <Text style={styles.detailValue}>{activity.location}</Text>
+                <Text style={styles.detailValue}>{activity.location_text}</Text>
               </View>
             </View>
 
@@ -105,7 +207,7 @@ export default function ActivityDetailScreen({ navigation, route }: any) {
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Date & Time</Text>
                 <Text style={styles.detailValue}>
-                  {activity.date} at {activity.time}
+                  {formatDate(activity.event_date)} at {formatTime(activity.event_time)}
                 </Text>
               </View>
             </View>
@@ -117,40 +219,77 @@ export default function ActivityDetailScreen({ navigation, route }: any) {
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>People</Text>
                 <Text style={styles.detailValue}>
-                  {activity.maxAttendees - activity.spotsNeeded}/{activity.maxAttendees} spots filled
+                  {activity.spots_filled}/{activity.spots_total} spots filled
                 </Text>
               </View>
             </View>
+
+            {activity.external_link && (
+              <View style={styles.detailRow}>
+                <View style={styles.detailIcon}>
+                  <Ionicons name="link" size={20} color="#000" />
+                </View>
+                <View style={styles.detailContent}>
+                  <Text style={styles.detailLabel}>Link</Text>
+                  <Text style={[styles.detailValue, { color: '#3B82F6' }]}>
+                    {activity.external_link}
+                  </Text>
+                </View>
+              </View>
+            )}
           </View>
         </View>
 
         {/* Attendees */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
-            Who's Going ({activity.attendees.length})
+            Who's Going ({attendees.length})
           </Text>
-          {activity.attendees.map((attendee, index) => (
-            <View key={index} style={styles.attendeeRow}>
-              <View style={[styles.attendeeAvatar, { backgroundColor: attendee.avatarColor }]}>
-                <Text style={styles.attendeeAvatarText}>{attendee.initials}</Text>
-              </View>
-              <Text style={styles.attendeeName}>{attendee.name}</Text>
-            </View>
-          ))}
+          {attendees.length > 0 ? (
+            attendees.map((req) => {
+              const name = `${req.requester.first_name} ${req.requester.last_name}`;
+              const initials = getInitials(req.requester.first_name, req.requester.last_name);
+              return (
+                <View key={req.id} style={styles.attendeeRow}>
+                  <View style={[styles.attendeeAvatar, { backgroundColor: req.requester.avatar_color || '#3B82F6' }]}>
+                    <Text style={styles.attendeeAvatarText}>{initials}</Text>
+                  </View>
+                  <Text style={styles.attendeeName}>{name}</Text>
+                </View>
+              );
+            })
+          ) : (
+            <Text style={styles.noAttendeesText}>No one has joined yet. Be the first!</Text>
+          )}
         </View>
 
         <View style={{ height: 100 }} />
       </ScrollView>
 
       {/* Bottom Action Bar */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.messageButton}>
-          <Ionicons name="chatbubble-outline" size={24} color="#000" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.joinButton}>
-          <Text style={styles.joinButtonText}>Request to Join</Text>
-        </TouchableOpacity>
-      </View>
+      {!isHost && (
+        <View style={styles.bottomBar}>
+          <TouchableOpacity style={styles.messageButton}>
+            <Ionicons name="chatbubble-outline" size={24} color="#000" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.joinButton,
+              hasRequested && styles.joinButtonDisabled,
+            ]}
+            onPress={handleJoinRequest}
+            disabled={hasRequested || isJoining}
+          >
+            {isJoining ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text style={styles.joinButtonText}>
+                {hasRequested ? 'Request Sent' : 'Request to Join'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -176,9 +315,14 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
-  image: {
-    width: '100%',
-    height: 250,
+  loadingState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#666',
   },
   section: {
     padding: 16,
@@ -299,6 +443,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  noAttendeesText: {
+    fontSize: 14,
+    color: '#999',
+    fontStyle: 'italic',
+  },
   bottomBar: {
     flexDirection: 'row',
     padding: 16,
@@ -323,6 +472,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     height: 56,
+  },
+  joinButtonDisabled: {
+    backgroundColor: '#666',
   },
   joinButtonText: {
     color: '#ffffff',

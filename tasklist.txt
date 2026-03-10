@@ -1,0 +1,229 @@
+# SERE MVP Task List
+# Last Updated: 2026-03-10
+# Progress: 20/38 tasks completed (53%)
+
+================================================================================
+COMPLETED TASKS
+================================================================================
+
+[x] #1  - Project migration to Expo/React Native
+        Migrated from Vite/React web app to Expo SDK 52 with React Native 0.76.
+        Files: App.tsx, app.json, babel.config.js, tsconfig.json, package.json
+
+[x] #2  - Set up Supabase client integration
+        Created Supabase client with expo-secure-store for auth persistence.
+        Files: lib/supabase.ts
+
+[x] #3  - Implement auth store with Zustand
+        Session management, email/social auth, sign out, user profile refresh.
+        Files: stores/authStore.ts
+
+[x] #4  - Implement activity store with Zustand
+        Feed fetching, CRUD activities, join requests, pending request management.
+        Files: stores/activityStore.ts
+
+[x] #5  - Create database schema and migrations
+        Tables: users, verification_tokens, friendships, invites, activities,
+        join_requests, chat_rooms, chat_members, messages, device_tokens,
+        notifications, feedback. Includes RLS policies, functions, triggers.
+        Files: supabase/migrations/001_initial_schema.sql
+
+[x] #6  - Build AuthScreen with login/signup forms
+        Email/password login and signup, social login buttons, form validation.
+        Files: screens/AuthScreen.tsx
+
+[x] #7  - Build MainFeedScreen with activity cards
+        Activity feed, category filters, pull-to-refresh, activity cards.
+        Files: screens/MainFeedScreen.tsx
+
+[x] #8  - Build CreatePostScreen for new activities
+        Category selection, skill level, description, date/time, location, spots.
+        Files: screens/CreatePostScreen.tsx
+
+[x] #9  - Build ActivityDetailScreen
+        Full activity details, join requests, pending requests for hosts.
+        Files: screens/ActivityDetailScreen.tsx
+
+[x] #10 - Build ProfileScreen
+        User profile, avatar, my activities, joined activities, sign out.
+        Files: screens/ProfileScreen.tsx
+
+[x] #11 - Build ChatsScreen
+        Chat rooms list (UI shell - messaging not fully implemented).
+        Files: screens/ChatsScreen.tsx
+
+[x] #12 - Build NotificationsScreen
+        Notification list (UI shell - backend integration pending).
+        Files: screens/NotificationsScreen.tsx
+
+[x] #13 - Set up React Navigation
+        Native stack navigation, auth flow handling, screen routes.
+        Files: App.tsx
+
+================================================================================
+PENDING TASKS - CORE SCREENS
+================================================================================
+
+[ ] #14 - Implement ProfileSetupScreen for onboarding
+        New user onboarding after signup: profile photo, bio, interests,
+        sports with skill levels. Flow: Sign Up -> Profile Setup -> Main Feed
+
+[ ] #15 - Implement LandingPage/WelcomeScreen
+        Welcome screen for unauthenticated users with branding and login/signup.
+
+[ ] #16 - Implement RatingSystem screen
+        Post-activity ratings: showed_up, was_late, review. Updates trust_scores.
+        Flow: Activity completion -> Rating -> Back to Feed
+
+[ ] #17 - Implement VerificationSafetyScreen
+        Phone/LinkedIn/ID/photo verification, safety guidelines, reporting.
+
+================================================================================
+PENDING TASKS - FEATURES
+================================================================================
+
+[ ] #18 - Implement real-time chat messaging
+        Complete ChatsScreen with Supabase Realtime: send/receive messages,
+        real-time updates, message history. Uses chat_rooms, messages tables.
+
+[ ] #19 - Implement push notifications with Expo
+        expo-notifications setup, device token registration, permission handling.
+        Types: join requests, messages, activity reminders.
+
+[ ] #20 - Implement image upload for avatars
+        expo-image-picker + Supabase Storage for profile photo upload.
+
+[ ] #21 - Implement trust score display
+        Trust level badges (new, reliable, super_reliable) on profiles/cards.
+
+[ ] #22 - Implement friendship system
+        Friend requests, accept/decline, friends list, unfriend. Activity feed
+        visibility depends on friend connections.
+
+[ ] #23 - Implement invite link system
+        Generate shareable invite links. New users via invite auto-connect.
+
+[ ] #24 - Add bottom tab navigation
+        @react-navigation/bottom-tabs: Feed, Create, Chats, Notifications, Profile
+
+[ ] #25 - Implement location-based activity filtering
+        expo-location for distance filtering and nearby activities.
+
+[ ] #26 - Implement date/time picker components
+        @react-native-community/datetimepicker for CreatePostScreen.
+
+[ ] #27 - Add activity search and advanced filters
+        Search, date range, category, skill level, spots filters.
+
+[ ] #28 - Implement email verification flow
+        Supabase Auth magic links or verification codes.
+
+[ ] #29 - Add error handling and loading states
+        Toast notifications, loading spinners, empty states, retry mechanisms.
+
+[ ] #30 - Implement activity editing and cancellation UI
+        Edit (max 2 times) and cancel activities, notify participants.
+
+[ ] #31 - Add reporting and blocking functionality
+        Report user, report reasons, block user. Uses reports table.
+
+================================================================================
+COMPLETED TASKS - DATA INTEGRATION
+================================================================================
+
+[x] #34 - Wire MainFeedScreen to live Supabase data
+        Replaced mockPosts with useActivityStore().fetchFeed(). Added
+        RefreshControl, loading states, date/time formatting. Renders real
+        ActivityWithHost data with host info, category labels, skill levels.
+        Files: screens/MainFeedScreen.tsx
+
+[x] #35 - Wire CreatePostScreen to activity store
+        Connected handleSubmit to useActivityStore().createActivity() with
+        authenticated user's ID. Maps form fields to ActivityInsert type
+        (category enums, date parsing, skill levels). Shows loading spinner.
+        Files: screens/CreatePostScreen.tsx
+
+[x] #36 - Wire ActivityDetailScreen to live Supabase data
+        Replaced mock activity with useActivityStore().fetchActivity() using
+        postId route param. Connected "Request to Join" to requestToJoin().
+        Loads real attendees from join_requests. Shows loading/error states.
+        Files: screens/ActivityDetailScreen.tsx
+
+[x] #37 - Wire ProfileScreen to auth store and activity store
+        Replaced hardcoded "Alex Chen" with real user data from useAuthStore().
+        Connected sign out to authStore.signOut(). Shows real name, email,
+        avatar color. Avatar color changes persist via updateUser().
+        Files: screens/ProfileScreen.tsx
+
+[x] #38 - Wire MainFeedScreen tabs (My Posts / Joined) to activity store
+        Connected "My Posts" tab to fetchMyActivities() and "Joined" tab to
+        fetchJoinedActivities(). Both render real ActivityWithHost data using
+        the same card component as the feed. Fetches on tab switch.
+        Files: screens/MainFeedScreen.tsx
+
+================================================================================
+COMPLETED TASKS - SETUP/CONFIG
+================================================================================
+
+[x] #32 - Set up Supabase project and run migrations
+        Supabase project created, .env configured with EXPO_PUBLIC_SUPABASE_URL
+        and EXPO_PUBLIC_SUPABASE_ANON_KEY, 001_initial_schema.sql applied.
+
+[x] #33 - Configure OAuth providers (Google, Apple)
+        OAuth providers configured in Supabase dashboard with redirect URL
+        sere://auth/callback.
+
+================================================================================
+PROJECT STRUCTURE
+================================================================================
+
+/SERE UI Wireframe Flow
+├── App.tsx                     # Main app with navigation
+├── app.json                    # Expo config
+├── package.json                # Dependencies
+├── tsconfig.json               # TypeScript config
+├── babel.config.js             # Babel config
+├── .env                        # Environment variables (not in git)
+├── .env.example                # Environment template
+│
+├── /screens
+│   ├── AuthScreen.tsx          # Login/Signup
+│   ├── MainFeedScreen.tsx      # Activity feed
+│   ├── CreatePostScreen.tsx    # Create activity
+│   ├── ActivityDetailScreen.tsx # Activity details
+│   ├── ProfileScreen.tsx       # User profile
+│   ├── ChatsScreen.tsx         # Chat list
+│   └── NotificationsScreen.tsx # Notifications
+│
+├── /stores
+│   ├── authStore.ts            # Auth state (Zustand)
+│   └── activityStore.ts        # Activity state (Zustand)
+│
+├── /components
+│   └── Avatar.tsx              # Avatar component
+│
+├── /lib
+│   └── supabase.ts             # Supabase client
+│
+├── /types
+│   └── database.ts             # TypeScript types
+│
+├── /constants
+│   └── index.ts                # App constants
+│
+├── /supabase
+│   └── /migrations
+│       └── 001_initial_schema.sql  # Database schema
+│
+└── /web-reference              # Original web components (for reference)
+
+================================================================================
+NOTES
+================================================================================
+
+- MVP Technical Spec: SERE_MVP_Technical_Specification.md
+- PRD Task List: Sere_PRD_Tasklist.pdf
+- Original web components preserved in /web-reference for reference
+- Database uses Supabase with Row Level Security (RLS)
+- State management: Zustand
+- Navigation: React Navigation (native-stack)

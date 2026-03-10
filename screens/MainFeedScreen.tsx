@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,128 +6,166 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-
-const mockPosts = [
-  {
-    id: '1',
-    user: {
-      name: 'Alex Chen',
-      initials: 'AC',
-      avatarColor: '#3B82F6',
-    },
-    category: 'Sport / Gym',
-    skillLevel: 'Intermediate',
-    description: 'Who wants to play tennis at Rock Creek Park at 6pm?',
-    location: 'Rock Creek Park, DC',
-    date: 'Today',
-    time: '6:00 PM',
-    spotsNeeded: 1,
-    maxAttendees: 4,
-    image: 'https://images.unsplash.com/photo-1564769353575-73f33a36d84f?w=400',
-  },
-  {
-    id: '2',
-    user: {
-      name: 'Maya Rodriguez',
-      initials: 'MR',
-      avatarColor: '#A855F7',
-    },
-    category: 'Party',
-    description: "Drake's performing tonight, who's going? Let's pregame in Silver Spring at 6pm.",
-    location: 'Silver Spring, MD',
-    date: 'Tonight',
-    time: '6:00 PM',
-    spotsNeeded: 3,
-    maxAttendees: 10,
-    image: 'https://images.unsplash.com/photo-1743791022256-40413c5f019b?w=400',
-  },
-  {
-    id: '3',
-    user: {
-      name: 'Jordan Kim',
-      initials: 'JK',
-      avatarColor: '#22C55E',
-    },
-    category: 'Casual Hangout',
-    description: 'Anyone want to grab coffee and work at a cafe in Capitol Hill?',
-    location: 'Capitol Hill, DC',
-    date: 'Tomorrow',
-    time: '10:00 AM',
-    spotsNeeded: 2,
-    maxAttendees: 3,
-  },
-];
+import { useActivityStore } from '../stores/activityStore';
+import { useAuthStore } from '../stores/authStore';
+import { ActivityWithHost } from '../types/database';
+import { getCategoryLabel, getInitials } from '../constants';
 
 export default function MainFeedScreen({ navigation }: any) {
   const [activeTab, setActiveTab] = useState('feed');
+  const [refreshing, setRefreshing] = useState(false);
 
-  const renderPost = (post: any) => (
-    <TouchableOpacity
-      key={post.id}
-      style={styles.postCard}
-      onPress={() => navigation.navigate('ActivityDetail', { postId: post.id })}
-    >
-      <View style={styles.postHeader}>
-        <View style={[styles.avatar, { backgroundColor: post.user.avatarColor }]}>
-          <Text style={styles.avatarText}>{post.user.initials}</Text>
-        </View>
-        <View style={styles.postHeaderInfo}>
-          <Text style={styles.userName}>{post.user.name}</Text>
-          <View style={styles.badges}>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{post.category}</Text>
-            </View>
-            {post.skillLevel && (
-              <View style={[styles.badge, styles.badgeSecondary]}>
-                <Text style={styles.badgeText}>{post.skillLevel}</Text>
+  const { user } = useAuthStore();
+  const {
+    activities,
+    myActivities,
+    joinedActivities,
+    isLoading,
+    fetchFeed,
+    fetchMyActivities,
+    fetchJoinedActivities,
+  } = useActivityStore();
+
+  const userId = user?.id;
+
+  // Fetch feed on mount
+  useEffect(() => {
+    if (userId) {
+      fetchFeed(userId);
+    }
+  }, [userId]);
+
+  // Fetch tab-specific data when switching tabs
+  useEffect(() => {
+    if (!userId) return;
+    if (activeTab === 'my-posts') {
+      fetchMyActivities(userId);
+    } else if (activeTab === 'joined') {
+      fetchJoinedActivities(userId);
+    }
+  }, [activeTab, userId]);
+
+  const onRefresh = useCallback(async () => {
+    if (!userId) return;
+    setRefreshing(true);
+    if (activeTab === 'feed') {
+      await fetchFeed(userId);
+    } else if (activeTab === 'my-posts') {
+      await fetchMyActivities(userId);
+    } else if (activeTab === 'joined') {
+      await fetchJoinedActivities(userId);
+    }
+    setRefreshing(false);
+  }, [activeTab, userId]);
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    if (date.toDateString() === today.toDateString()) return 'Today';
+    if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
+
+  const formatTime = (timeStr: string) => {
+    const [hours, minutes] = timeStr.split(':');
+    const h = parseInt(hours, 10);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    return `${h12}:${minutes} ${ampm}`;
+  };
+
+  const renderPost = (activity: ActivityWithHost) => {
+    const hostName = `${activity.host.first_name} ${activity.host.last_name}`;
+    const initials = getInitials(activity.host.first_name, activity.host.last_name);
+    const categoryLabel = getCategoryLabel(activity.category);
+    const skillLabel = activity.skill_level
+      ? activity.skill_level.charAt(0).toUpperCase() + activity.skill_level.slice(1).replace('_', ' ')
+      : null;
+
+    return (
+      <TouchableOpacity
+        key={activity.id}
+        style={styles.postCard}
+        onPress={() => navigation.navigate('ActivityDetail', { postId: activity.id })}
+      >
+        <View style={styles.postHeader}>
+          <View style={[styles.avatar, { backgroundColor: activity.host.avatar_color || '#3B82F6' }]}>
+            <Text style={styles.avatarText}>{initials}</Text>
+          </View>
+          <View style={styles.postHeaderInfo}>
+            <Text style={styles.userName}>{hostName}</Text>
+            <View style={styles.badges}>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{categoryLabel}</Text>
               </View>
-            )}
+              {skillLabel && (
+                <View style={[styles.badge, styles.badgeSecondary]}>
+                  <Text style={styles.badgeText}>{skillLabel}</Text>
+                </View>
+              )}
+            </View>
           </View>
         </View>
-      </View>
 
-      {post.image && (
-        <Image source={{ uri: post.image }} style={styles.postImage} />
-      )}
+        <Text style={styles.postDescription}>{activity.description}</Text>
 
-      <Text style={styles.postDescription}>{post.description}</Text>
-
-      <View style={styles.postDetails}>
-        <View style={styles.detailRow}>
-          <Ionicons name="location-outline" size={16} color="#666" />
-          <Text style={styles.detailText}>{post.location}</Text>
+        <View style={styles.postDetails}>
+          <View style={styles.detailRow}>
+            <Ionicons name="location-outline" size={16} color="#666" />
+            <Text style={styles.detailText}>{activity.location_text}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Ionicons name="time-outline" size={16} color="#666" />
+            <Text style={styles.detailText}>
+              {formatDate(activity.event_date)} {formatTime(activity.event_time)}
+            </Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Ionicons name="people-outline" size={16} color="#666" />
+            <Text style={styles.detailText}>
+              {activity.spots_filled}/{activity.spots_total} going
+            </Text>
+          </View>
         </View>
-        <View style={styles.detailRow}>
-          <Ionicons name="time-outline" size={16} color="#666" />
-          <Text style={styles.detailText}>{post.date} {post.time}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Ionicons name="people-outline" size={16} color="#666" />
-          <Text style={styles.detailText}>
-            {post.maxAttendees - post.spotsNeeded}/{post.maxAttendees} going
-          </Text>
-        </View>
-      </View>
 
-      <View style={styles.postActions}>
-        <TouchableOpacity style={styles.joinButton}>
-          <Text style={styles.joinButtonText}>+1 Join</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.messageButton}>
-          <Ionicons name="chatbubble-outline" size={20} color="#000" />
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
+        <View style={styles.postActions}>
+          <TouchableOpacity style={styles.joinButton}>
+            <Text style={styles.joinButtonText}>+1 Join</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.messageButton}>
+            <Ionicons name="chatbubble-outline" size={20} color="#000" />
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const getActiveData = (): ActivityWithHost[] => {
+    switch (activeTab) {
+      case 'my-posts':
+        return myActivities;
+      case 'joined':
+        return joinedActivities;
+      default:
+        return activities;
+    }
+  };
+
+  const activeData = getActiveData();
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.logo}>[şere]</Text>
+        <Text style={styles.logo}>[sere]</Text>
         <View style={styles.headerIcons}>
           <TouchableOpacity
             style={styles.iconButton}
@@ -185,27 +223,53 @@ export default function MainFeedScreen({ navigation }: any) {
       </View>
 
       {/* Content */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {activeTab === 'feed' && mockPosts.map(renderPost)}
-        
-        {activeTab === 'my-posts' && (
-          <View style={styles.emptyState}>
-            <Ionicons name="add-circle-outline" size={64} color="#ccc" />
-            <Text style={styles.emptyStateText}>You haven't created any activities yet.</Text>
-            <TouchableOpacity
-              style={styles.emptyStateButton}
-              onPress={() => navigation.navigate('CreatePost')}
-            >
-              <Text style={styles.emptyStateButtonText}>Create Your First Activity</Text>
-            </TouchableOpacity>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#000" />
+        }
+      >
+        {isLoading && !refreshing && activeData.length === 0 ? (
+          <View style={styles.loadingState}>
+            <ActivityIndicator size="large" color="#000" />
           </View>
-        )}
-
-        {activeTab === 'joined' && (
+        ) : activeData.length > 0 ? (
+          activeData.map(renderPost)
+        ) : (
           <View style={styles.emptyState}>
-            <Ionicons name="people-outline" size={64} color="#ccc" />
-            <Text style={styles.emptyStateText}>You haven't joined any activities yet.</Text>
-            <Text style={styles.emptyStateSubtext}>Browse the feed to find activities!</Text>
+            {activeTab === 'feed' && (
+              <>
+                <Ionicons name="compass-outline" size={64} color="#ccc" />
+                <Text style={styles.emptyStateText}>No activities nearby yet.</Text>
+                <Text style={styles.emptyStateSubtext}>Be the first to post one!</Text>
+                <TouchableOpacity
+                  style={styles.emptyStateButton}
+                  onPress={() => navigation.navigate('CreatePost')}
+                >
+                  <Text style={styles.emptyStateButtonText}>Create Activity</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            {activeTab === 'my-posts' && (
+              <>
+                <Ionicons name="add-circle-outline" size={64} color="#ccc" />
+                <Text style={styles.emptyStateText}>You haven't created any activities yet.</Text>
+                <TouchableOpacity
+                  style={styles.emptyStateButton}
+                  onPress={() => navigation.navigate('CreatePost')}
+                >
+                  <Text style={styles.emptyStateButtonText}>Create Your First Activity</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            {activeTab === 'joined' && (
+              <>
+                <Ionicons name="people-outline" size={64} color="#ccc" />
+                <Text style={styles.emptyStateText}>You haven't joined any activities yet.</Text>
+                <Text style={styles.emptyStateSubtext}>Browse the feed to find activities!</Text>
+              </>
+            )}
           </View>
         )}
       </ScrollView>
@@ -268,6 +332,10 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
+  },
+  loadingState: {
+    paddingVertical: 80,
+    alignItems: 'center',
   },
   postCard: {
     backgroundColor: '#ffffff',
