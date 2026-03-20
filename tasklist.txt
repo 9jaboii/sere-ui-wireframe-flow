@@ -128,6 +128,20 @@ PENDING TASKS - FEATURES
         Report user, report reasons, block user. Uses reports table.
 
 ================================================================================
+PENDING TASKS - PRE-PRODUCTION
+================================================================================
+
+[ ] #39 - Remove web workarounds before production build
+        Web-specific code was added for dev/testing convenience (app is mobile-only):
+        - lib/supabase.ts: localStorage fallback and detectSessionInUrl for web.
+          For prod, revert to SecureStore-only storage adapter and keep
+          detectSessionInUrl: false (no web platform to support).
+        - screens/AuthScreen.tsx: window.alert fallback in showAlert().
+          For prod, revert to Alert.alert only (no web platform).
+        - package.json: react-dom, react-native-web, @expo/metro-runtime are
+          web-only deps. Remove them for prod to reduce bundle size.
+
+================================================================================
 COMPLETED TASKS - DATA INTEGRATION
 ================================================================================
 

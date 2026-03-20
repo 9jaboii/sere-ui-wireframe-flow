@@ -11,6 +11,15 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+
+// Cross-platform alert (Alert.alert doesn't work on web)
+const showAlert = (title: string, message: string) => {
+  if (Platform.OS === 'web') {
+    window.alert(`${title}\n${message}`);
+  } else {
+    showAlert(title, message);
+  }
+};
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../stores/authStore';
 
@@ -26,12 +35,12 @@ export default function AuthScreen() {
 
   const handleAuth = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please enter email and password');
+      showAlert('Error', 'Please enter email and password');
       return;
     }
 
     if (isSignUp && (!firstName || !lastName)) {
-      Alert.alert('Error', 'Please enter your first and last name');
+      showAlert('Error', 'Please enter your first and last name');
       return;
     }
 
@@ -40,9 +49,9 @@ export default function AuthScreen() {
       if (isSignUp) {
         const { error } = await signUpWithEmail(email, password, firstName, lastName);
         if (error) {
-          Alert.alert('Sign Up Error', error.message);
+          showAlert('Sign Up Error', error.message);
         } else {
-          Alert.alert(
+          showAlert(
             'Verification Required',
             'Please check your email for a verification link to complete your registration.'
           );
@@ -50,11 +59,11 @@ export default function AuthScreen() {
       } else {
         const { error } = await signInWithEmail(email, password);
         if (error) {
-          Alert.alert('Sign In Error', error.message);
+          showAlert('Sign In Error', error.message);
         }
       }
     } catch (err) {
-      Alert.alert('Error', 'An unexpected error occurred');
+      showAlert('Error', 'An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }
@@ -65,10 +74,10 @@ export default function AuthScreen() {
     try {
       const { error } = await signInWithGoogle();
       if (error) {
-        Alert.alert('Google Sign In Error', error.message);
+        showAlert('Google Sign In Error', error.message);
       }
     } catch (err) {
-      Alert.alert('Error', 'An unexpected error occurred');
+      showAlert('Error', 'An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }
@@ -79,10 +88,10 @@ export default function AuthScreen() {
     try {
       const { error } = await signInWithApple();
       if (error) {
-        Alert.alert('Apple Sign In Error', error.message);
+        showAlert('Apple Sign In Error', error.message);
       }
     } catch (err) {
-      Alert.alert('Error', 'An unexpected error occurred');
+      showAlert('Error', 'An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }
