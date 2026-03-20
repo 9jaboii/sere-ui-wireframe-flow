@@ -30,9 +30,7 @@
         "READ_EXTERNAL_STORAGE"
       ]
     },
-    "plugins": [
-      "expo-secure-store"
-    ],
+    "plugins": [],
     "extra": {
       "eas": {
         "projectId": "your-project-id"
