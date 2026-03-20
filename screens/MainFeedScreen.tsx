@@ -83,6 +83,7 @@ export default function MainFeedScreen({ navigation }: any) {
   };
 
   const renderPost = (activity: ActivityWithHost) => {
+    if (!activity.host) return null;
     const hostName = `${activity.host.first_name} ${activity.host.last_name}`;
     const initials = getInitials(activity.host.first_name, activity.host.last_name);
     const categoryLabel = getCategoryLabel(activity.category);
