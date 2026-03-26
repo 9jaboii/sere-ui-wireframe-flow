@@ -5,11 +5,11 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { showAlert } from '../lib/alert';
 import { useAuthStore } from '../stores/authStore';
 import { getInitials, AVATAR_COLORS } from '../constants';
 
@@ -29,7 +29,7 @@ export default function ProfileScreen({ navigation }: any) {
   };
 
   const handleSignOut = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+    showAlert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign Out',
@@ -42,7 +42,7 @@ export default function ProfileScreen({ navigation }: any) {
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
+    showAlert(
       'Delete Account',
       'This action cannot be undone. This will permanently delete your account and remove all your data.',
       [
@@ -56,7 +56,7 @@ export default function ProfileScreen({ navigation }: any) {
             setIsDeletingAccount(false);
 
             if (error) {
-              Alert.alert('Error', 'Failed to delete account. Please try again.');
+              showAlert('Error', 'Failed to delete account. Please try again.');
             }
           },
         },

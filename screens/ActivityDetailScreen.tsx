@@ -6,10 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { showAlert } from '../lib/alert';
 import { useActivityStore } from '../stores/activityStore';
 import { useAuthStore } from '../stores/authStore';
 import { getCategoryLabel, getInitials } from '../constants';
@@ -66,7 +66,7 @@ export default function ActivityDetailScreen({ navigation, route }: any) {
   const handleJoinRequest = async () => {
     if (!user) return;
     if (hasRequested) {
-      Alert.alert('Already Requested', 'You have already requested to join this activity.');
+      showAlert('Already Requested', 'You have already requested to join this activity.');
       return;
     }
 
@@ -75,10 +75,10 @@ export default function ActivityDetailScreen({ navigation, route }: any) {
     setIsJoining(false);
 
     if (error) {
-      Alert.alert('Error', error.message || 'Failed to request to join.');
+      showAlert('Error', error.message || 'Failed to request to join.');
     } else {
       setHasRequested(true);
-      Alert.alert('Request Sent!', 'The host will review your request.');
+      showAlert('Request Sent!', 'The host will review your request.');
     }
   };
 

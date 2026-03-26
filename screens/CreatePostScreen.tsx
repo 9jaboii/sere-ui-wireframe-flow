@@ -6,7 +6,6 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
   Image,
   ActivityIndicator,
   Platform,
@@ -15,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { format } from 'date-fns';
+import { showAlert } from '../lib/alert';
 import { useActivityStore } from '../stores/activityStore';
 import { useAuthStore } from '../stores/authStore';
 import { ActivityCategory, SkillLevel } from '../types/database';
@@ -60,23 +60,23 @@ export default function CreatePostScreen({ navigation }: any) {
 
   const handleSubmit = async () => {
     if (!activityCategory || !description || !location || !selectedDate || !selectedTime || !maxAttendees) {
-      Alert.alert('Missing Fields', 'Please fill in all required fields.');
+      showAlert('Missing Fields', 'Please fill in all required fields.');
       return;
     }
 
     if (activityCategory === 'sport_gym' && !skillLevel) {
-      Alert.alert('Skill Level Required', 'Please select a skill level for Sport / Gym activities');
+      showAlert('Skill Level Required', 'Please select a skill level for Sport / Gym activities');
       return;
     }
 
     if (!user) {
-      Alert.alert('Error', 'You must be logged in to create an activity.');
+      showAlert('Error', 'You must be logged in to create an activity.');
       return;
     }
 
     const spotsTotal = parseInt(maxAttendees, 10);
     if (isNaN(spotsTotal) || spotsTotal < 1 || spotsTotal > 12) {
-      Alert.alert('Invalid', 'Number of people must be between 1 and 12.');
+      showAlert('Invalid', 'Number of people must be between 1 and 12.');
       return;
     }
 
@@ -100,9 +100,9 @@ export default function CreatePostScreen({ navigation }: any) {
     setIsSubmitting(false);
 
     if (error) {
-      Alert.alert('Error', error.message || 'Failed to create activity.');
+      showAlert('Error', error.message || 'Failed to create activity.');
     } else {
-      Alert.alert('Success!', 'Your activity has been posted.', [
+      showAlert('Success!', 'Your activity has been posted.', [
         {
           text: 'View My Posts',
           onPress: () => navigation.navigate('MainFeed', { tab: 'my-posts' }),
@@ -114,7 +114,7 @@ export default function CreatePostScreen({ navigation }: any) {
   const handleAddPhoto = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow access to your photo library to add photos.');
+      showAlert('Permission needed', 'Please allow access to your photo library to add photos.');
       return;
     }
 
