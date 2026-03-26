@@ -16,7 +16,7 @@ import { useAuthStore } from '../stores/authStore';
 import { ActivityWithHost } from '../types/database';
 import { getCategoryLabel, getInitials } from '../constants';
 
-export default function MainFeedScreen({ navigation }: any) {
+export default function MainFeedScreen({ navigation, route }: any) {
   const [activeTab, setActiveTab] = useState('feed');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -33,6 +33,16 @@ export default function MainFeedScreen({ navigation }: any) {
 
   const userId = user?.id;
 
+  // Handle tab param from navigation (e.g. after creating a post)
+  useEffect(() => {
+    const tab = route?.params?.tab;
+    if (tab) {
+      setActiveTab(tab);
+      // Clear the param so it doesn't re-trigger
+      navigation.setParams({ tab: undefined });
+    }
+  }, [route?.params?.tab]);
+
   // Fetch feed on mount
   useEffect(() => {
     if (userId) {
@@ -43,7 +53,9 @@ export default function MainFeedScreen({ navigation }: any) {
   // Fetch tab-specific data when switching tabs
   useEffect(() => {
     if (!userId) return;
-    if (activeTab === 'my-posts') {
+    if (activeTab === 'feed') {
+      fetchFeed(userId);
+    } else if (activeTab === 'my-posts') {
       fetchMyActivities(userId);
     } else if (activeTab === 'joined') {
       fetchJoinedActivities(userId);

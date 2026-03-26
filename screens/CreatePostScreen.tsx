@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,11 +14,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { useActivityStore } from '../stores/activityStore';
 import { useAuthStore } from '../stores/authStore';
 import { ActivityCategory, SkillLevel } from '../types/database';
+
+// Only import DateTimePicker on native platforms
+let DateTimePicker: any = null;
+if (Platform.OS !== 'web') {
+  DateTimePicker = require('@react-native-community/datetimepicker').default;
+}
 
 const categories: { label: string; value: ActivityCategory }[] = [
   { label: 'Sport / Gym', value: 'sport_gym' },
@@ -42,6 +47,8 @@ export default function CreatePostScreen({ navigation }: any) {
   const [selectedTime, setSelectedTime] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const dateInputRef = useRef<any>(null);
+  const timeInputRef = useRef<any>(null);
   const [maxAttendees, setMaxAttendees] = useState('');
   const [skillLevel, setSkillLevel] = useState<SkillLevel | ''>('');
   const [eventLink, setEventLink] = useState('');
@@ -96,7 +103,10 @@ export default function CreatePostScreen({ navigation }: any) {
       Alert.alert('Error', error.message || 'Failed to create activity.');
     } else {
       Alert.alert('Success!', 'Your activity has been posted.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
+        {
+          text: 'View My Posts',
+          onPress: () => navigation.navigate('MainFeed', { tab: 'my-posts' }),
+        },
       ]);
     }
   };
@@ -120,12 +130,12 @@ export default function CreatePostScreen({ navigation }: any) {
     }
   };
 
-  const onDateChange = (_event: DateTimePickerEvent, date?: Date) => {
+  const onDateChange = (_event: any, date?: Date) => {
     if (Platform.OS === 'android') setShowDatePicker(false);
     if (date) setSelectedDate(date);
   };
 
-  const onTimeChange = (_event: DateTimePickerEvent, date?: Date) => {
+  const onTimeChange = (_event: any, date?: Date) => {
     if (Platform.OS === 'android') setShowTimePicker(false);
     if (date) setSelectedTime(date);
   };
@@ -250,41 +260,99 @@ export default function CreatePostScreen({ navigation }: any) {
           <View style={styles.row}>
             <View style={styles.halfWidth}>
               <Text style={styles.label}>Date *</Text>
-              <TouchableOpacity
-                style={styles.input}
-                onPress={() => setShowDatePicker(true)}
-              >
-                <Text style={selectedDate ? styles.pickerValueText : styles.pickerPlaceholderText}>
-                  {selectedDate ? format(selectedDate, 'MMM d, yyyy') : 'Select date'}
-                </Text>
-              </TouchableOpacity>
-              {showDatePicker && (
-                <DateTimePicker
-                  value={selectedDate || new Date()}
-                  mode="date"
-                  minimumDate={new Date()}
-                  onChange={onDateChange}
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              {Platform.OS === 'web' ? (
+                <input
+                  ref={dateInputRef}
+                  type="date"
+                  value={selectedDate ? format(selectedDate, 'yyyy-MM-dd') : ''}
+                  min={format(new Date(), 'yyyy-MM-dd')}
+                  onChange={(e: any) => {
+                    if (e.target.value) {
+                      setSelectedDate(new Date(e.target.value + 'T00:00:00'));
+                    }
+                  }}
+                  style={{
+                    backgroundColor: '#f5f5f5',
+                    borderRadius: 8,
+                    padding: 12,
+                    fontSize: 14,
+                    borderWidth: 1,
+                    borderColor: '#e5e5e5',
+                    border: '1px solid #e5e5e5',
+                    fontFamily: 'inherit',
+                    width: '100%',
+                    boxSizing: 'border-box' as any,
+                  }}
                 />
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={styles.input}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <Text style={selectedDate ? styles.pickerValueText : styles.pickerPlaceholderText}>
+                      {selectedDate ? format(selectedDate, 'MMM d, yyyy') : 'Select date'}
+                    </Text>
+                  </TouchableOpacity>
+                  {showDatePicker && DateTimePicker && (
+                    <DateTimePicker
+                      value={selectedDate || new Date()}
+                      mode="date"
+                      minimumDate={new Date()}
+                      onChange={onDateChange}
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    />
+                  )}
+                </>
               )}
             </View>
             <View style={styles.halfWidth}>
               <Text style={styles.label}>Time *</Text>
-              <TouchableOpacity
-                style={styles.input}
-                onPress={() => setShowTimePicker(true)}
-              >
-                <Text style={selectedTime ? styles.pickerValueText : styles.pickerPlaceholderText}>
-                  {selectedTime ? format(selectedTime, 'h:mm a') : 'Select time'}
-                </Text>
-              </TouchableOpacity>
-              {showTimePicker && (
-                <DateTimePicker
-                  value={selectedTime || new Date()}
-                  mode="time"
-                  onChange={onTimeChange}
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              {Platform.OS === 'web' ? (
+                <input
+                  ref={timeInputRef}
+                  type="time"
+                  value={selectedTime ? format(selectedTime, 'HH:mm') : ''}
+                  onChange={(e: any) => {
+                    if (e.target.value) {
+                      const [h, m] = e.target.value.split(':');
+                      const d = new Date();
+                      d.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
+                      setSelectedTime(d);
+                    }
+                  }}
+                  style={{
+                    backgroundColor: '#f5f5f5',
+                    borderRadius: 8,
+                    padding: 12,
+                    fontSize: 14,
+                    borderWidth: 1,
+                    borderColor: '#e5e5e5',
+                    border: '1px solid #e5e5e5',
+                    fontFamily: 'inherit',
+                    width: '100%',
+                    boxSizing: 'border-box' as any,
+                  }}
                 />
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={styles.input}
+                    onPress={() => setShowTimePicker(true)}
+                  >
+                    <Text style={selectedTime ? styles.pickerValueText : styles.pickerPlaceholderText}>
+                      {selectedTime ? format(selectedTime, 'h:mm a') : 'Select time'}
+                    </Text>
+                  </TouchableOpacity>
+                  {showTimePicker && DateTimePicker && (
+                    <DateTimePicker
+                      value={selectedTime || new Date()}
+                      mode="time"
+                      onChange={onTimeChange}
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    />
+                  )}
+                </>
               )}
             </View>
           </View>
