@@ -7,17 +7,21 @@ import { storageAdapter } from './storage';
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
+const isWeb = Platform.OS === 'web';
+
 // Session persistence strategy:
 // - Access token: 1hr expiry, auto-refreshed by Supabase client (autoRefreshToken: true)
 // - Refresh token: 7 days expiry, stored in SecureStore via storageAdapter (persistSession: true)
 // - On refresh failure (e.g., 7+ days inactive): user is signed out via onAuthStateChange in authStore
 // - JWT expiry settings are configured in the Supabase dashboard (see constants/index.ts for reference values)
+// - On web: use localStorage and disable navigator.locks to prevent LockManager timeout
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: storageAdapter,
+    storage: isWeb ? globalThis.localStorage : storageAdapter,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: Platform.OS === 'web',
+    detectSessionInUrl: isWeb,
+    ...(isWeb ? { lock: 'no-lock' as any } : {}),
   },
 });
 
