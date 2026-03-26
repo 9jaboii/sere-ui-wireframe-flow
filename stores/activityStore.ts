@@ -36,16 +36,16 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   fetchFeed: async (userId) => {
     set({ isLoading: true, error: null });
     try {
-      // For MVP, fetch activities from friends and friends-of-friends
-      // This uses the get_visible_activities function we'll create
-      const { data, error } = await supabase
+      // Get visible activity IDs via RPC (own + friends + friends-of-friends)
+      const { data: rpcData, error: rpcError } = await supabase
         .rpc('get_visible_activities', { current_user_id: userId })
         .order('event_date', { ascending: true })
         .order('event_time', { ascending: true });
 
-      if (error) {
-        // Fallback: fetch all active activities for now
-        const { data: fallbackData, error: fallbackError } = await supabase
+      if (!rpcError && rpcData && rpcData.length > 0) {
+        // Re-fetch with host join so renderPost has the data it needs
+        const activityIds = rpcData.map((a: any) => a.id);
+        const { data, error } = await supabase
           .from('activities')
           .select(`
             *,
@@ -56,17 +56,34 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
               avatar_color
             )
           `)
-          .eq('status', 'active')
-          .gte('event_date', new Date().toISOString().split('T')[0])
+          .in('id', activityIds)
           .order('event_date', { ascending: true })
           .order('event_time', { ascending: true });
 
-        if (fallbackError) throw fallbackError;
-        set({ activities: fallbackData || [], isLoading: false });
+        if (error) throw error;
+        set({ activities: data || [], isLoading: false });
         return;
       }
 
-      set({ activities: data || [], isLoading: false });
+      // Fallback: fetch all active activities (includes own)
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('activities')
+        .select(`
+          *,
+          host:users!host_user_id (
+            id,
+            first_name,
+            last_name,
+            avatar_color
+          )
+        `)
+        .eq('status', 'active')
+        .gte('event_date', new Date().toISOString().split('T')[0])
+        .order('event_date', { ascending: true })
+        .order('event_time', { ascending: true });
+
+      if (fallbackError) throw fallbackError;
+      set({ activities: fallbackData || [], isLoading: false });
     } catch (error) {
       console.error('Error fetching feed:', error);
       set({ error: (error as Error).message, isLoading: false });
