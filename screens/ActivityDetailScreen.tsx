@@ -269,7 +269,10 @@ export default function ActivityDetailScreen({ navigation, route }: any) {
       {/* Bottom Action Bar */}
       {!isHost && (
         <View style={styles.bottomBar}>
-          <TouchableOpacity style={styles.messageButton}>
+          <TouchableOpacity
+            style={styles.messageButton}
+            onPress={() => navigation.navigate('ChatRoom', { activityId: activity.id })}
+          >
             <Ionicons name="chatbubble-outline" size={24} color="#000" />
           </TouchableOpacity>
           <TouchableOpacity

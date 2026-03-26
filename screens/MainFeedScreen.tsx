@@ -90,6 +90,7 @@ export default function MainFeedScreen({ navigation }: any) {
     const skillLabel = activity.skill_level
       ? activity.skill_level.charAt(0).toUpperCase() + activity.skill_level.slice(1).replace('_', ' ')
       : null;
+    const isHost = userId === activity.host_user_id;
 
     return (
       <TouchableOpacity
@@ -116,6 +117,10 @@ export default function MainFeedScreen({ navigation }: any) {
           </View>
         </View>
 
+        <View style={styles.postImagePlaceholder}>
+          <Text style={styles.postImagePlaceholderText}>{categoryLabel}</Text>
+        </View>
+
         <Text style={styles.postDescription}>{activity.description}</Text>
 
         <View style={styles.postDetails}>
@@ -137,14 +142,22 @@ export default function MainFeedScreen({ navigation }: any) {
           </View>
         </View>
 
-        <View style={styles.postActions}>
-          <TouchableOpacity style={styles.joinButton}>
-            <Text style={styles.joinButtonText}>+1 Join</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.messageButton}>
-            <Ionicons name="chatbubble-outline" size={20} color="#000" />
-          </TouchableOpacity>
-        </View>
+        {!isHost && (
+          <View style={styles.postActions}>
+            <TouchableOpacity style={styles.joinButton}>
+              <Text style={styles.joinButtonText}>+1 Join</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.messageButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                navigation.navigate('ChatRoom', { activityId: activity.id });
+              }}
+            >
+              <Ionicons name="chatbubble-outline" size={20} color="#000" />
+            </TouchableOpacity>
+          </View>
+        )}
       </TouchableOpacity>
     );
   };
@@ -202,7 +215,7 @@ export default function MainFeedScreen({ navigation }: any) {
           onPress={() => setActiveTab('feed')}
         >
           <Text style={[styles.tabText, activeTab === 'feed' && styles.tabTextActive]}>
-            Nearby
+            Activities
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -242,7 +255,7 @@ export default function MainFeedScreen({ navigation }: any) {
             {activeTab === 'feed' && (
               <>
                 <Ionicons name="compass-outline" size={64} color="#ccc" />
-                <Text style={styles.emptyStateText}>No activities nearby yet.</Text>
+                <Text style={styles.emptyStateText}>No activities yet.</Text>
                 <Text style={styles.emptyStateSubtext}>Be the first to post one!</Text>
                 <TouchableOpacity
                   style={styles.emptyStateButton}
@@ -400,6 +413,22 @@ const styles = StyleSheet.create({
     height: 150,
     borderRadius: 8,
     marginBottom: 12,
+  },
+  postImagePlaceholder: {
+    width: '100%',
+    height: 100,
+    borderRadius: 8,
+    marginBottom: 12,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+  },
+  postImagePlaceholderText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
   },
   postDescription: {
     fontSize: 14,

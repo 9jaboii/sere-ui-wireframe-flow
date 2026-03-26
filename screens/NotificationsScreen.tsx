@@ -1,118 +1,137 @@
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useNotificationStore } from '../stores/notificationStore';
+import { useAuthStore } from '../stores/authStore';
+import { Notification, NotificationType } from '../types/database';
 
-const mockNotifications = [
-  {
-    id: '1',
-    type: 'request',
-    userName: 'Sarah Williams',
-    userInitials: 'SW',
-    userColor: '#EC4899',
-    activityName: 'Tennis at Rock Creek Park',
-    message: 'wants to join your activity',
-    time: '5m ago',
-    unread: true,
-  },
-  {
-    id: '2',
-    type: 'accepted',
-    userName: 'Mike Davis',
-    userInitials: 'MD',
-    userColor: '#F97316',
-    activityName: 'Basketball Pickup Game',
-    message: 'accepted your join request',
-    time: '1h ago',
-    unread: true,
-  },
-  {
-    id: '3',
-    type: 'message',
-    userName: 'Jordan Kim',
-    userInitials: 'JK',
-    userColor: '#22C55E',
-    activityName: 'Coffee & Work',
-    message: 'sent a message in',
-    time: '3h ago',
-    unread: false,
-  },
-  {
-    id: '4',
-    type: 'reminder',
-    activityName: 'Concert Pregame',
-    message: 'Activity starts in 2 hours',
-    time: 'Today',
-    unread: false,
-  },
-];
+const getIcon = (type: NotificationType): keyof typeof Ionicons.glyphMap => {
+  switch (type) {
+    case 'request_received':
+      return 'person-add-outline';
+    case 'request_accepted':
+      return 'checkmark-circle-outline';
+    case 'activity_updated':
+      return 'create-outline';
+    case 'activity_canceled':
+      return 'close-circle-outline';
+    case 'reminder':
+      return 'time-outline';
+    case 'completion_confirmation':
+      return 'trophy-outline';
+    default:
+      return 'notifications-outline';
+  }
+};
+
+const formatTime = (dateStr: string) => {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
 
 export default function NotificationsScreen({ navigation }: any) {
-  const getIcon = (type: string) => {
-    switch (type) {
-      case 'request':
-        return 'person-add-outline';
-      case 'accepted':
-        return 'checkmark-circle-outline';
-      case 'message':
-        return 'chatbubble-outline';
-      case 'reminder':
-        return 'time-outline';
-      default:
-        return 'notifications-outline';
+  const { user } = useAuthStore();
+  const {
+    notifications,
+    isLoading,
+    fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+    subscribeToNotifications,
+  } = useNotificationStore();
+
+  const userId = user?.id;
+
+  useEffect(() => {
+    if (!userId) return;
+    fetchNotifications(userId);
+    const unsubscribe = subscribeToNotifications(userId);
+    return unsubscribe;
+  }, [userId]);
+
+  const onRefresh = useCallback(async () => {
+    if (userId) await fetchNotifications(userId);
+  }, [userId]);
+
+  const handleNotificationPress = async (notification: Notification) => {
+    if (!notification.read_at) {
+      await markAsRead(notification.id);
     }
+    const payload = notification.payload as { activity_id?: string } | null;
+    if (payload?.activity_id) {
+      navigation.navigate('ActivityDetail', { postId: payload.activity_id });
+    }
+  };
+
+  const handleMarkAllRead = () => {
+    if (userId) markAllAsRead(userId);
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={handleMarkAllRead}>
           <Text style={styles.markAllRead}>Mark all read</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {mockNotifications.map((notification) => (
-          <TouchableOpacity
-            key={notification.id}
-            style={[
-              styles.notificationItem,
-              notification.unread && styles.notificationItemUnread,
-            ]}
-          >
-            <View style={styles.notificationIcon}>
-              {notification.type === 'reminder' ? (
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={onRefresh} tintColor="#000" />
+        }
+      >
+        {!isLoading && notifications.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="notifications-off-outline" size={64} color="#ccc" />
+            <Text style={styles.emptyStateText}>No notifications yet</Text>
+          </View>
+        ) : (
+          notifications.map((notification) => (
+            <TouchableOpacity
+              key={notification.id}
+              style={[
+                styles.notificationItem,
+                !notification.read_at && styles.notificationItemUnread,
+              ]}
+              onPress={() => handleNotificationPress(notification)}
+            >
+              <View style={styles.notificationIcon}>
                 <Ionicons name={getIcon(notification.type)} size={24} color="#000" />
-              ) : (
-                <View style={[styles.userAvatar, { backgroundColor: notification.userColor }]}>
-                  <Text style={styles.userAvatarText}>{notification.userInitials}</Text>
-                </View>
-              )}
-            </View>
-            <View style={styles.notificationContent}>
-              <Text style={styles.notificationText}>
-                {notification.userName && (
-                  <Text style={styles.userName}>{notification.userName} </Text>
-                )}
-                {notification.message}{' '}
-                <Text style={styles.activityName}>{notification.activityName}</Text>
-              </Text>
-              <Text style={styles.notificationTime}>{notification.time}</Text>
-            </View>
-            {notification.unread && <View style={styles.unreadDot} />}
-          </TouchableOpacity>
-        ))}
+              </View>
+              <View style={styles.notificationContent}>
+                <Text style={styles.notificationTitle}>{notification.title}</Text>
+                <Text style={styles.notificationText}>{notification.body}</Text>
+                <Text style={styles.notificationTime}>{formatTime(notification.created_at)}</Text>
+              </View>
+              {!notification.read_at && <View style={styles.unreadDot} />}
+            </TouchableOpacity>
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -146,6 +165,16 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 16,
+  },
   notificationItem: {
     flexDirection: 'row',
     padding: 16,
@@ -165,35 +194,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  userAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  userAvatarText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
   notificationContent: {
     flex: 1,
     justifyContent: 'center',
+  },
+  notificationTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 2,
   },
   notificationText: {
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 4,
     color: '#333',
-  },
-  userName: {
-    fontWeight: '600',
-    color: '#000',
-  },
-  activityName: {
-    fontWeight: '500',
-    color: '#000',
   },
   notificationTime: {
     fontSize: 12,

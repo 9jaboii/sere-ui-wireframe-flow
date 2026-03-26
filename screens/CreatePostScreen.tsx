@@ -9,9 +9,13 @@ import {
   Alert,
   Image,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { format } from 'date-fns';
 import { useActivityStore } from '../stores/activityStore';
 import { useAuthStore } from '../stores/authStore';
 import { ActivityCategory, SkillLevel } from '../types/database';
@@ -34,8 +38,10 @@ export default function CreatePostScreen({ navigation }: any) {
   const [activityCategory, setActivityCategory] = useState<ActivityCategory | ''>('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedTime, setSelectedTime] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [maxAttendees, setMaxAttendees] = useState('');
   const [skillLevel, setSkillLevel] = useState<SkillLevel | ''>('');
   const [eventLink, setEventLink] = useState('');
@@ -46,7 +52,7 @@ export default function CreatePostScreen({ navigation }: any) {
   const { createActivity } = useActivityStore();
 
   const handleSubmit = async () => {
-    if (!activityCategory || !description || !location || !date || !time || !maxAttendees) {
+    if (!activityCategory || !description || !location || !selectedDate || !selectedTime || !maxAttendees) {
       Alert.alert('Missing Fields', 'Please fill in all required fields.');
       return;
     }
@@ -67,19 +73,8 @@ export default function CreatePostScreen({ navigation }: any) {
       return;
     }
 
-    // Parse date: expect MM/DD/YYYY
-    const dateParts = date.split('/');
-    let eventDate: string;
-    if (dateParts.length === 3) {
-      const [month, day, year] = dateParts;
-      eventDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-    } else {
-      Alert.alert('Invalid Date', 'Please enter date as MM/DD/YYYY.');
-      return;
-    }
-
-    // Parse time: expect HH:MM (24h or simple)
-    const eventTime = time.includes(':') ? `${time}:00` : `${time}:00:00`;
+    const eventDate = format(selectedDate, 'yyyy-MM-dd');
+    const eventTime = format(selectedTime, 'HH:mm:ss');
 
     setIsSubmitting(true);
 
@@ -106,9 +101,33 @@ export default function CreatePostScreen({ navigation }: any) {
     }
   };
 
-  const handleAddPhoto = () => {
-    // Mock photo - in real app would use expo-image-picker
-    setPhotoUri('https://images.unsplash.com/photo-1517457373958-b7bdd4587205?w=400');
+  const handleAddPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow access to your photo library to add photos.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setPhotoUri(result.assets[0].uri);
+    }
+  };
+
+  const onDateChange = (_event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS === 'android') setShowDatePicker(false);
+    if (date) setSelectedDate(date);
+  };
+
+  const onTimeChange = (_event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS === 'android') setShowTimePicker(false);
+    if (date) setSelectedTime(date);
   };
 
   const getCategoryLabel = (value: ActivityCategory) => {
@@ -231,21 +250,42 @@ export default function CreatePostScreen({ navigation }: any) {
           <View style={styles.row}>
             <View style={styles.halfWidth}>
               <Text style={styles.label}>Date *</Text>
-              <TextInput
+              <TouchableOpacity
                 style={styles.input}
-                placeholder="MM/DD/YYYY"
-                value={date}
-                onChangeText={setDate}
-              />
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Text style={selectedDate ? styles.pickerValueText : styles.pickerPlaceholderText}>
+                  {selectedDate ? format(selectedDate, 'MMM d, yyyy') : 'Select date'}
+                </Text>
+              </TouchableOpacity>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={selectedDate || new Date()}
+                  mode="date"
+                  minimumDate={new Date()}
+                  onChange={onDateChange}
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                />
+              )}
             </View>
             <View style={styles.halfWidth}>
               <Text style={styles.label}>Time *</Text>
-              <TextInput
+              <TouchableOpacity
                 style={styles.input}
-                placeholder="HH:MM"
-                value={time}
-                onChangeText={setTime}
-              />
+                onPress={() => setShowTimePicker(true)}
+              >
+                <Text style={selectedTime ? styles.pickerValueText : styles.pickerPlaceholderText}>
+                  {selectedTime ? format(selectedTime, 'h:mm a') : 'Select time'}
+                </Text>
+              </TouchableOpacity>
+              {showTimePicker && (
+                <DateTimePicker
+                  value={selectedTime || new Date()}
+                  mode="time"
+                  onChange={onTimeChange}
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                />
+              )}
             </View>
           </View>
 
@@ -405,6 +445,14 @@ const styles = StyleSheet.create({
   },
   halfWidth: {
     flex: 1,
+  },
+  pickerValueText: {
+    fontSize: 14,
+    color: '#000',
+  },
+  pickerPlaceholderText: {
+    fontSize: 14,
+    color: '#999',
   },
   helperText: {
     fontSize: 12,

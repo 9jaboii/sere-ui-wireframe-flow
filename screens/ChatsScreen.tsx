@@ -1,45 +1,57 @@
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useChatStore, ChatRoomWithDetails } from '../stores/chatStore';
+import { useAuthStore } from '../stores/authStore';
 
-const mockChats = [
-  {
-    id: '1',
-    activityName: 'Tennis at Rock Creek Park',
-    lastMessage: "See you at 6pm!",
-    time: '2m ago',
-    unread: 2,
-    avatar: '🎾',
-  },
-  {
-    id: '2',
-    activityName: 'Concert Pregame',
-    lastMessage: 'What time should we meet?',
-    time: '1h ago',
-    unread: 0,
-    avatar: '🎵',
-  },
-  {
-    id: '3',
-    activityName: 'Coffee & Work',
-    lastMessage: 'Perfect, see you tomorrow!',
-    time: 'Yesterday',
-    unread: 0,
-    avatar: '☕',
-  },
-];
+const formatTime = (dateStr: string | null) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
 
 export default function ChatsScreen({ navigation }: any) {
+  const { user } = useAuthStore();
+  const { chatRooms, isLoading, fetchChatRooms } = useChatStore();
+
+  const userId = user?.id;
+
+  useEffect(() => {
+    if (userId) fetchChatRooms(userId);
+  }, [userId]);
+
+  const onRefresh = useCallback(async () => {
+    if (userId) await fetchChatRooms(userId);
+  }, [userId]);
+
+  const handleChatPress = (chat: ChatRoomWithDetails) => {
+    navigation.navigate('ChatRoom', {
+      roomId: chat.id,
+      activityId: chat.activity_id,
+    });
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
@@ -48,30 +60,52 @@ export default function ChatsScreen({ navigation }: any) {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {mockChats.map((chat) => (
-          <TouchableOpacity key={chat.id} style={styles.chatItem}>
-            <View style={styles.chatAvatar}>
-              <Text style={styles.chatAvatarEmoji}>{chat.avatar}</Text>
-            </View>
-            <View style={styles.chatContent}>
-              <View style={styles.chatHeader}>
-                <Text style={styles.chatName}>{chat.activityName}</Text>
-                <Text style={styles.chatTime}>{chat.time}</Text>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={onRefresh} tintColor="#000" />
+        }
+      >
+        {!isLoading && chatRooms.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="chatbubbles-outline" size={64} color="#ccc" />
+            <Text style={styles.emptyStateText}>No chats yet</Text>
+            <Text style={styles.emptyStateSubtext}>
+              Message someone from an activity to start chatting
+            </Text>
+          </View>
+        ) : (
+          chatRooms.map((chat) => (
+            <TouchableOpacity
+              key={chat.id}
+              style={styles.chatItem}
+              onPress={() => handleChatPress(chat)}
+            >
+              <View style={styles.chatAvatar}>
+                <Ionicons name="chatbubbles" size={24} color="#666" />
               </View>
-              <View style={styles.chatFooter}>
-                <Text style={styles.chatMessage} numberOfLines={1}>
-                  {chat.lastMessage}
-                </Text>
-                {chat.unread > 0 && (
-                  <View style={styles.unreadBadge}>
-                    <Text style={styles.unreadText}>{chat.unread}</Text>
-                  </View>
-                )}
+              <View style={styles.chatContent}>
+                <View style={styles.chatHeader}>
+                  <Text style={styles.chatName} numberOfLines={1}>{chat.activity_name}</Text>
+                  <Text style={styles.chatTime}>
+                    {formatTime(chat.last_message_at || chat.created_at)}
+                  </Text>
+                </View>
+                <View style={styles.chatFooter}>
+                  <Text style={styles.chatMessage} numberOfLines={1}>
+                    {chat.last_message || 'No messages yet'}
+                  </Text>
+                  {chat.unread_count > 0 && (
+                    <View style={styles.unreadBadge}>
+                      <Text style={styles.unreadText}>{chat.unread_count}</Text>
+                    </View>
+                  )}
+                </View>
               </View>
-            </View>
-          </TouchableOpacity>
-        ))}
+            </TouchableOpacity>
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -100,6 +134,23 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    paddingHorizontal: 40,
+  },
   chatItem: {
     flexDirection: 'row',
     padding: 16,
@@ -114,9 +165,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
-  },
-  chatAvatarEmoji: {
-    fontSize: 28,
   },
   chatContent: {
     flex: 1,

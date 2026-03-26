@@ -14,6 +14,7 @@ import CreatePostScreen from './screens/CreatePostScreen';
 import ActivityDetailScreen from './screens/ActivityDetailScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import ChatsScreen from './screens/ChatsScreen';
+import ChatRoomScreen from './screens/ChatRoomScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import AuthScreen from './screens/AuthScreen';
 
@@ -118,6 +119,7 @@ export default function App() {
           <Stack.Screen name="ActivityDetail" component={ActivityDetailScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="Chats" component={ChatsScreen} />
+          <Stack.Screen name="ChatRoom" component={ChatRoomScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
         </Stack.Navigator>
       </NavigationContainer>
