@@ -17,6 +17,7 @@ import { format } from 'date-fns';
 import { showAlert } from '../lib/alert';
 import { useActivityStore } from '../stores/activityStore';
 import { useAuthStore } from '../stores/authStore';
+import { supabase } from '../lib/supabase';
 import { ActivityCategory, SkillLevel } from '../types/database';
 
 // Only import DateTimePicker on native platforms
@@ -85,7 +86,7 @@ export default function CreatePostScreen({ navigation }: any) {
 
     setIsSubmitting(true);
 
-    const { error } = await createActivity({
+    const { error, data: newActivity } = await createActivity({
       host_user_id: user.id,
       category: activityCategory,
       skill_level: activityCategory === 'sport_gym' && skillLevel ? skillLevel : null,
@@ -96,6 +97,37 @@ export default function CreatePostScreen({ navigation }: any) {
       spots_total: spotsTotal,
       external_link: eventLink || null,
     });
+
+    // Upload photo if selected and activity was created
+    if (!error && newActivity && photoUri) {
+      try {
+        const fileExt = photoUri.split('.').pop()?.toLowerCase() || 'jpg';
+        const filePath = `${user.id}/${newActivity.id}.${fileExt}`;
+
+        // Fetch the local image as a blob
+        const response = await fetch(photoUri);
+        const blob = await response.blob();
+
+        const { error: uploadError } = await supabase.storage
+          .from('activity-photos')
+          .upload(filePath, blob, { contentType: `image/${fileExt}`, upsert: true });
+
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage
+            .from('activity-photos')
+            .getPublicUrl(filePath);
+
+          // Update activity with photo URL
+          await supabase
+            .from('activities')
+            .update({ photo_url: urlData.publicUrl })
+            .eq('id', newActivity.id);
+        }
+      } catch (uploadErr) {
+        // Photo upload failed but activity was created — don't block
+        console.warn('Photo upload failed:', uploadErr);
+      }
+    }
 
     setIsSubmitting(false);
 

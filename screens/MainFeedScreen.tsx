@@ -129,9 +129,18 @@ export default function MainFeedScreen({ navigation, route }: any) {
           </View>
         </View>
 
-        <View style={styles.postImagePlaceholder}>
-          <Text style={styles.postImagePlaceholderText}>{categoryLabel}</Text>
-        </View>
+        {activity.photo_url ? (
+          <View style={styles.postImageContainer}>
+            <Image source={{ uri: activity.photo_url }} style={styles.postImage} />
+            <View style={styles.postImageOverlay}>
+              <Text style={styles.postImageOverlayText}>{categoryLabel}</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.postImagePlaceholder}>
+            <Text style={styles.postImagePlaceholderText}>{categoryLabel}</Text>
+          </View>
+        )}
 
         <Text style={styles.postDescription}>{activity.description}</Text>
 
@@ -420,11 +429,30 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '500',
   },
+  postImageContainer: {
+    position: 'relative',
+    marginBottom: 12,
+  },
   postImage: {
     width: '100%',
     height: 150,
     borderRadius: 8,
-    marginBottom: 12,
+  },
+  postImageOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+  },
+  postImageOverlayText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
   },
   postImagePlaceholder: {
     width: '100%',

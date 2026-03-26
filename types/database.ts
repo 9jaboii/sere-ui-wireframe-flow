@@ -122,6 +122,7 @@ export interface Database {
           spots_total: number;
           spots_filled: number;
           external_link: string | null;
+          photo_url: string | null;
           status: ActivityStatus;
           edit_count: number;
           first_acceptance_at: string | null;
@@ -142,6 +143,7 @@ export interface Database {
           spots_total: number;
           spots_filled?: number;
           external_link?: string | null;
+          photo_url?: string | null;
           status?: ActivityStatus;
           edit_count?: number;
           first_acceptance_at?: string | null;
@@ -158,6 +160,7 @@ export interface Database {
           spots_total?: number;
           spots_filled?: number;
           external_link?: string | null;
+          photo_url?: string | null;
           status?: ActivityStatus;
           edit_count?: number;
           first_acceptance_at?: string | null;
