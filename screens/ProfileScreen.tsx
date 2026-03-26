@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,8 +15,9 @@ import { getInitials, AVATAR_COLORS } from '../constants';
 
 export default function ProfileScreen({ navigation }: any) {
   const [activeTab, setActiveTab] = useState('profile');
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
-  const { user, signOut, updateUser } = useAuthStore();
+  const { user, signOut, deleteAccount, updateUser } = useAuthStore();
 
   const userName = user ? `${user.first_name} ${user.last_name}` : 'User';
   const userEmail = user?.email || '';
@@ -48,15 +50,14 @@ export default function ProfileScreen({ navigation }: any) {
         {
           text: 'Delete Account',
           style: 'destructive',
-          onPress: () => {
-            Alert.alert('Account Deleted', 'Your account has been deleted.', [
-              {
-                text: 'OK',
-                onPress: async () => {
-                  await signOut();
-                },
-              },
-            ]);
+          onPress: async () => {
+            setIsDeletingAccount(true);
+            const { error } = await deleteAccount();
+            setIsDeletingAccount(false);
+
+            if (error) {
+              Alert.alert('Error', 'Failed to delete account. Please try again.');
+            }
           },
         },
       ]
@@ -169,9 +170,19 @@ export default function ProfileScreen({ navigation }: any) {
               <Text style={styles.dangerText}>
                 Once you delete your account, there is no going back. This action cannot be undone.
               </Text>
-              <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
-                <Ionicons name="trash-outline" size={18} color="#fff" />
-                <Text style={styles.deleteButtonText}>Delete Account</Text>
+              <TouchableOpacity
+                style={[styles.deleteButton, isDeletingAccount && { opacity: 0.7 }]}
+                onPress={handleDeleteAccount}
+                disabled={isDeletingAccount}
+              >
+                {isDeletingAccount ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <>
+                    <Ionicons name="trash-outline" size={18} color="#fff" />
+                    <Text style={styles.deleteButtonText}>Delete Account</Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
           </View>

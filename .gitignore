@@ -49,3 +49,7 @@ coverage/
 # TypeScript
 *.tsbuildinfo
 .vercel
+.env*.local
+
+# Supabase local
+supabase/.temp/

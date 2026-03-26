@@ -11,17 +11,19 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuthStore } from '../stores/authStore';
+import { supabase } from '../lib/supabase';
 
 // Cross-platform alert (Alert.alert doesn't work on web)
 const showAlert = (title: string, message: string) => {
   if (Platform.OS === 'web') {
     window.alert(`${title}\n${message}`);
   } else {
-    showAlert(title, message);
+    Alert.alert(title, message);
   }
 };
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuthStore } from '../stores/authStore';
 
 export default function AuthScreen() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -30,6 +32,9 @@ export default function AuthScreen() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [signUpSuccess, setSignUpSuccess] = useState(false);
+  const [signUpEmail, setSignUpEmail] = useState('');
 
   const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple } = useAuthStore();
 
@@ -51,10 +56,8 @@ export default function AuthScreen() {
         if (error) {
           showAlert('Sign Up Error', error.message);
         } else {
-          showAlert(
-            'Verification Required',
-            'Please check your email for a verification link to complete your registration.'
-          );
+          setSignUpEmail(email);
+          setSignUpSuccess(true);
         }
       } else {
         const { error } = await signInWithEmail(email, password);
@@ -96,6 +99,68 @@ export default function AuthScreen() {
       setIsLoading(false);
     }
   };
+
+  const handleResendVerification = async () => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: signUpEmail,
+      });
+      if (error) {
+        showAlert('Error', error.message);
+      } else {
+        showAlert('Email Sent', 'A new verification email has been sent.');
+      }
+    } catch (err) {
+      showAlert('Error', 'An unexpected error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (signUpSuccess) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.content}>
+          <Ionicons name="mail-outline" size={64} color="#ffffff" style={{ marginBottom: 24 }} />
+          <Text style={styles.logo}>Check Your Email</Text>
+          <Text style={styles.verifySubtitle}>
+            We sent a verification link to
+          </Text>
+          <Text style={styles.verifyEmail}>{signUpEmail}</Text>
+          <Text style={styles.verifyHint}>
+            Click the link in the email to verify your account and start using SERE.
+          </Text>
+
+          <View style={styles.form}>
+            <TouchableOpacity
+              style={[styles.button, isLoading && styles.buttonDisabled]}
+              onPress={handleResendVerification}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#000000" />
+              ) : (
+                <Text style={styles.buttonText}>Resend Verification Email</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setSignUpSuccess(false);
+                setIsSignUp(false);
+                setPassword('');
+              }}
+              style={{ marginTop: 20 }}
+            >
+              <Text style={styles.switchText}>Back to Sign In</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -140,14 +205,26 @@ export default function AuthScreen() {
                 editable={!isLoading}
               />
 
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                editable={!isLoading}
-              />
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Password"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  editable={!isLoading}
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={22}
+                    color="#666666"
+                  />
+                </TouchableOpacity>
+              </View>
 
               <TouchableOpacity
                 style={[styles.button, isLoading && styles.buttonDisabled]}
@@ -245,6 +322,42 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     fontSize: 16,
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 16,
+    fontSize: 16,
+  },
+  eyeButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 16,
+  },
+  verifySubtitle: {
+    fontSize: 16,
+    color: '#999999',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  verifyEmail: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '600',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  verifyHint: {
+    fontSize: 14,
+    color: '#666666',
+    textAlign: 'center',
+    marginBottom: 32,
+    paddingHorizontal: 20,
   },
   button: {
     backgroundColor: '#ffffff',

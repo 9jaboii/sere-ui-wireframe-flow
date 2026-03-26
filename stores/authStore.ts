@@ -22,6 +22,7 @@ interface AuthState {
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   signInWithApple: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<{ error: Error | null }>;
   refreshUser: () => Promise<void>;
   updateUser: (updates: Partial<User>) => Promise<{ error: Error | null }>;
 }
@@ -200,6 +201,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       console.error('Error signing out:', error);
       set({ isLoading: false });
+    }
+  },
+
+  deleteAccount: async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-user');
+
+      if (error) {
+        return { error };
+      }
+
+      // Clear local state after successful deletion
+      await supabase.auth.signOut();
+      set({
+        session: null,
+        authUser: null,
+        user: null,
+      });
+
+      return { error: null };
+    } catch (error) {
+      return { error: error as Error };
     }
   },
 
