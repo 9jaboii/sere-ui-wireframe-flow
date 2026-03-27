@@ -1,0 +1,6 @@
+{
+  "buildCommand": "sh build-vercel.sh",
+  "rewrites": [
+    { "source": "/app", "destination": "/app.html" }
+  ]
+}

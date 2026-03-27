@@ -200,7 +200,7 @@ export default function MainFeedScreen({ navigation, route }: any) {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.logo}>[sere]</Text>
+        <Text style={styles.logo}>[şere]</Text>
         <View style={styles.headerIcons}>
           <TouchableOpacity
             style={styles.iconButton}

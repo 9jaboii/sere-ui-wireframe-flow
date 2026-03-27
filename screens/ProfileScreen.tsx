@@ -189,7 +189,7 @@ export default function ProfileScreen({ navigation }: any) {
         )}
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>[sere] - Never go alone</Text>
+          <Text style={styles.footerText}>[şere] - Never go alone</Text>
           <Text style={styles.footerVersion}>Version 0.1.0 MVP</Text>
         </View>
       </ScrollView>
