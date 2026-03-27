@@ -21,6 +21,7 @@ interface ActivityState {
   cancelActivity: (activityId: string) => Promise<{ error: Error | null }>;
   requestToJoin: (activityId: string, userId: string) => Promise<{ error: Error | null }>;
   acceptRequest: (requestId: string) => Promise<{ error: Error | null }>;
+  rejectRequest: (requestId: string) => Promise<{ error: Error | null }>;
   fetchPendingRequests: (activityId: string) => Promise<void>;
 }
 
@@ -295,6 +296,21 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     } catch (error) {
       console.error('Error accepting request:', error);
       set({ error: (error as Error).message, isLoading: false });
+      return { error: error as Error };
+    }
+  },
+
+  rejectRequest: async (requestId) => {
+    try {
+      const { error } = await supabase
+        .from('join_requests')
+        .delete()
+        .eq('id', requestId);
+
+      if (error) throw error;
+      return { error: null };
+    } catch (error) {
+      console.error('Error rejecting request:', error);
       return { error: error as Error };
     }
   },

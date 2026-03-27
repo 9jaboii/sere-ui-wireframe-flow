@@ -6,11 +6,12 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { showAlert } from '../lib/alert';
 import { useNotificationStore } from '../stores/notificationStore';
+import { useActivityStore } from '../stores/activityStore';
 import { useAuthStore } from '../stores/authStore';
 import { Notification, NotificationType } from '../types/database';
 
@@ -58,6 +59,7 @@ export default function NotificationsScreen({ navigation }: any) {
     markAllAsRead,
     subscribeToNotifications,
   } = useNotificationStore();
+  const { acceptRequest, rejectRequest } = useActivityStore();
 
   const userId = user?.id;
 
@@ -84,6 +86,30 @@ export default function NotificationsScreen({ navigation }: any) {
 
   const handleMarkAllRead = () => {
     if (userId) markAllAsRead(userId);
+  };
+
+  const handleAccept = async (notification: Notification) => {
+    const payload = notification.payload as { request_id?: string } | null;
+    if (!payload?.request_id) return;
+    const { error } = await acceptRequest(payload.request_id);
+    if (error) {
+      showAlert('Error', 'Failed to accept request.');
+    } else {
+      markAsRead(notification.id);
+      if (userId) fetchNotifications(userId);
+    }
+  };
+
+  const handleReject = async (notification: Notification) => {
+    const payload = notification.payload as { request_id?: string } | null;
+    if (!payload?.request_id) return;
+    const { error } = await rejectRequest(payload.request_id);
+    if (error) {
+      showAlert('Error', 'Failed to reject request.');
+    } else {
+      markAsRead(notification.id);
+      if (userId) fetchNotifications(userId);
+    }
   };
 
   return (
@@ -127,6 +153,24 @@ export default function NotificationsScreen({ navigation }: any) {
                 <Text style={styles.notificationTitle}>{notification.title}</Text>
                 <Text style={styles.notificationText}>{notification.body}</Text>
                 <Text style={styles.notificationTime}>{formatTime(notification.created_at)}</Text>
+
+                {/* Inline Accept/Reject for join requests */}
+                {notification.type === 'request_received' && !notification.read_at && (
+                  <View style={styles.actionButtons}>
+                    <TouchableOpacity
+                      style={styles.acceptButton}
+                      onPress={() => handleAccept(notification)}
+                    >
+                      <Text style={styles.acceptButtonText}>Accept</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.rejectButton}
+                      onPress={() => handleReject(notification)}
+                    >
+                      <Text style={styles.rejectButtonText}>Reject</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
               {!notification.read_at && <View style={styles.unreadDot} />}
             </TouchableOpacity>
@@ -213,6 +257,34 @@ const styles = StyleSheet.create({
   notificationTime: {
     fontSize: 12,
     color: '#666',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  acceptButton: {
+    backgroundColor: '#000',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  acceptButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  rejectButton: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  rejectButtonText: {
+    color: '#666',
+    fontSize: 12,
+    fontWeight: '600',
   },
   unreadDot: {
     width: 8,

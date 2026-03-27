@@ -36,7 +36,30 @@ export default function AuthScreen() {
   const [signUpSuccess, setSignUpSuccess] = useState(false);
   const [signUpEmail, setSignUpEmail] = useState('');
 
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+
   const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple } = useAuthStore();
+
+  const handleForgotPassword = async () => {
+    const emailToReset = forgotPasswordEmail || email;
+    if (!emailToReset) {
+      showAlert('Email Required', 'Please enter your email address to reset your password.');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(emailToReset);
+      if (error) {
+        showAlert('Error', error.message);
+      } else {
+        showAlert('Email Sent', 'Check your email for a password reset link.');
+      }
+    } catch (err) {
+      showAlert('Error', 'An unexpected error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleAuth = async () => {
     if (!email || !password) {
@@ -226,6 +249,12 @@ export default function AuthScreen() {
                 </TouchableOpacity>
               </View>
 
+              {!isSignUp && (
+                <TouchableOpacity onPress={handleForgotPassword} disabled={isLoading}>
+                  <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
                 style={[styles.button, isLoading && styles.buttonDisabled]}
                 onPress={handleAuth}
@@ -408,6 +437,13 @@ const styles = StyleSheet.create({
   },
   appleButtonText: {
     color: '#ffffff',
+  },
+  forgotPasswordText: {
+    color: '#999999',
+    textAlign: 'right',
+    fontSize: 13,
+    marginBottom: 4,
+    marginTop: 4,
   },
   switchText: {
     color: '#ffffff',

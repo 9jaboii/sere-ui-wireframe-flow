@@ -17,6 +17,11 @@ import ChatsScreen from './screens/ChatsScreen';
 import ChatRoomScreen from './screens/ChatRoomScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import AuthScreen from './screens/AuthScreen';
+import EditActivityScreen from './screens/EditActivityScreen';
+import EditProfileScreen from './screens/EditProfileScreen';
+import SettingsScreen from './screens/SettingsScreen';
+import FriendsScreen from './screens/FriendsScreen';
+import InviteScreen from './screens/InviteScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -121,6 +126,11 @@ export default function App() {
           <Stack.Screen name="Chats" component={ChatsScreen} />
           <Stack.Screen name="ChatRoom" component={ChatRoomScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
+          <Stack.Screen name="EditActivity" component={EditActivityScreen} />
+          <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+          <Stack.Screen name="Settings" component={SettingsScreen} />
+          <Stack.Screen name="Friends" component={FriendsScreen} />
+          <Stack.Screen name="Invite" component={InviteScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

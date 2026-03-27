@@ -217,9 +217,18 @@
         <p class="section-subtitle">Join the waitlist and we'll let you know when SERE launches in your area.</p>
       </div>
       <form id="waitlist-form" class="waitlist-form">
+        <div class="waitlist-name-row">
+          <input type="text" id="waitlist-first-name" placeholder="First name" autocomplete="given-name" aria-label="First name">
+          <input type="text" id="waitlist-last-name" placeholder="Last name" autocomplete="family-name" aria-label="Last name">
+        </div>
         <div class="waitlist-input-group">
           <input type="email" id="waitlist-email" placeholder="Enter your email" required autocomplete="email" aria-label="Email address">
-          <button type="submit" class="btn btn-white">Join Waitlist</button>
+        </div>
+        <div class="waitlist-input-group">
+          <input type="text" id="waitlist-location" placeholder="City / Location" autocomplete="address-level2" aria-label="Location">
+        </div>
+        <div class="waitlist-input-group">
+          <button type="submit" class="btn btn-white" style="width:100%">Join Waitlist</button>
         </div>
         <p id="waitlist-msg" class="waitlist-msg" hidden></p>
       </form>
@@ -267,6 +276,9 @@
 
       var form = document.getElementById('waitlist-form');
       var emailInput = document.getElementById('waitlist-email');
+      var firstNameInput = document.getElementById('waitlist-first-name');
+      var lastNameInput = document.getElementById('waitlist-last-name');
+      var locationInput = document.getElementById('waitlist-location');
       var msg = document.getElementById('waitlist-msg');
 
       form.addEventListener('submit', function (e) {
@@ -278,6 +290,14 @@
         btn.disabled = true;
         btn.textContent = 'Joining...';
 
+        var body = { email: email };
+        var firstName = firstNameInput.value.trim();
+        var lastName = lastNameInput.value.trim();
+        var location = locationInput.value.trim();
+        if (firstName) body.first_name = firstName;
+        if (lastName) body.last_name = lastName;
+        if (location) body.location = location;
+
         fetch(SUPABASE_URL + '/rest/v1/waitlist', {
           method: 'POST',
           headers: {
@@ -286,13 +306,16 @@
             'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
             'Prefer': 'return=minimal'
           },
-          body: JSON.stringify({ email: email })
+          body: JSON.stringify(body)
         }).then(function (res) {
           if (res.ok) {
             msg.textContent = "You're on the list! We'll be in touch.";
             msg.className = 'waitlist-msg success';
             msg.hidden = false;
             emailInput.value = '';
+            firstNameInput.value = '';
+            lastNameInput.value = '';
+            locationInput.value = '';
           } else if (res.status === 409) {
             msg.textContent = "You're already on the waitlist!";
             msg.className = 'waitlist-msg success';

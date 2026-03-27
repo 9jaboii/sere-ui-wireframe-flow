@@ -15,6 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useChatStore } from '../stores/chatStore';
 import { useAuthStore } from '../stores/authStore';
 import { getInitials } from '../constants';
+import { showAlert } from '../lib/alert';
+import { supabase } from '../lib/supabase';
 import { MessageWithUser } from '../types/database';
 
 const formatMessageTime = (dateStr: string) => {
@@ -31,6 +33,7 @@ export default function ChatRoomScreen({ navigation, route }: any) {
   const [roomId, setRoomId] = useState<string | null>(existingRoomId || null);
   const [messageText, setMessageText] = useState('');
   const [initializing, setInitializing] = useState(!existingRoomId);
+  const [activityName, setActivityName] = useState('Chat');
   const flatListRef = useRef<FlatList>(null);
 
   const { user } = useAuthStore();
@@ -45,6 +48,24 @@ export default function ChatRoomScreen({ navigation, route }: any) {
 
   const userId = user?.id;
 
+  // Fetch activity name for header
+  useEffect(() => {
+    if (!activityId) return;
+    (async () => {
+      const { data } = await supabase
+        .from('activities')
+        .select('description')
+        .eq('id', activityId)
+        .single();
+      if (data?.description) {
+        const name = data.description.length > 30
+          ? data.description.substring(0, 30) + '...'
+          : data.description;
+        setActivityName(name);
+      }
+    })();
+  }, [activityId]);
+
   // Get or create room on mount
   useEffect(() => {
     if (!userId || !activityId) return;
@@ -58,7 +79,9 @@ export default function ChatRoomScreen({ navigation, route }: any) {
       const { roomId: newRoomId, error } = await getOrCreateChatRoom(activityId, userId);
       if (error) {
         console.error('Failed to get/create chat room:', error);
+        showAlert('Chat Error', 'Unable to open chat room. Please try again later.');
         setInitializing(false);
+        navigation.goBack();
         return;
       }
       setRoomId(newRoomId);
@@ -122,7 +145,7 @@ export default function ChatRoomScreen({ navigation, route }: any) {
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Chat</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>{activityName}</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.loadingState}>
@@ -138,7 +161,7 @@ export default function ChatRoomScreen({ navigation, route }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>Chat</Text>
+        <Text style={styles.headerTitle} numberOfLines={1}>{activityName}</Text>
         <View style={{ width: 24 }} />
       </View>
 

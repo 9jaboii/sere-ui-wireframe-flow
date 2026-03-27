@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -82,6 +83,13 @@ export default function ProfileScreen({ navigation }: any) {
         </View>
         <Text style={styles.profileName}>{userName}</Text>
         <Text style={styles.profileEmail}>{userEmail}</Text>
+        <TouchableOpacity
+          style={styles.editProfileButton}
+          onPress={() => navigation.navigate('EditProfile')}
+        >
+          <Ionicons name="create-outline" size={16} color="#000" />
+          <Text style={styles.editProfileButtonText}>Edit Profile</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Tabs */}
@@ -144,12 +152,22 @@ export default function ProfileScreen({ navigation }: any) {
           <View>
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Account Settings</Text>
-              <TouchableOpacity style={styles.menuItem}>
+              <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Settings')}>
                 <Ionicons name="settings-outline" size={20} color="#000" />
                 <Text style={styles.menuItemText}>Settings</Text>
                 <Ionicons name="chevron-forward" size={20} color="#999" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.menuItem}>
+              <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Friends')}>
+                <Ionicons name="people-outline" size={20} color="#000" />
+                <Text style={styles.menuItemText}>Friends</Text>
+                <Ionicons name="chevron-forward" size={20} color="#999" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Invite')}>
+                <Ionicons name="paper-plane-outline" size={20} color="#000" />
+                <Text style={styles.menuItemText}>Invite Friends</Text>
+                <Ionicons name="chevron-forward" size={20} color="#999" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.menuItem} onPress={() => Linking.openURL('mailto:support@sere.app')}>
                 <Ionicons name="mail-outline" size={20} color="#000" />
                 <Text style={styles.menuItemText}>Contact Us</Text>
                 <Ionicons name="chevron-forward" size={20} color="#999" />
@@ -243,6 +261,21 @@ const styles = StyleSheet.create({
   profileEmail: {
     fontSize: 14,
     color: '#666',
+  },
+  editProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#000',
+    borderRadius: 8,
+  },
+  editProfileButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   tabs: {
     flexDirection: 'row',

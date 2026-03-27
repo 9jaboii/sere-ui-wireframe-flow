@@ -84,6 +84,12 @@ export const getCategoryIcon = (category: string): string => {
   return found?.icon || 'ellipsis-horizontal-outline';
 };
 
+// Helper function to get skill level label
+export const getSkillLabel = (skillLevel: string): string => {
+  const found = SKILL_LEVELS.find(s => s.value === skillLevel);
+  return found?.label || skillLevel;
+};
+
 // Helper function to get category label
 export const getCategoryLabel = (category: string): string => {
   const found = ACTIVITY_CATEGORIES.find(c => c.value === category);

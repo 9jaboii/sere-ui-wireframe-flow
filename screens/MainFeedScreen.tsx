@@ -10,11 +10,12 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useActivityStore } from '../stores/activityStore';
 import { useAuthStore } from '../stores/authStore';
 import { ActivityWithHost } from '../types/database';
-import { getCategoryLabel, getInitials } from '../constants';
+import { getCategoryLabel, getInitials, getSkillLabel } from '../constants';
 
 export default function MainFeedScreen({ navigation, route }: any) {
   const [activeTab, setActiveTab] = useState('feed');
@@ -43,12 +44,19 @@ export default function MainFeedScreen({ navigation, route }: any) {
     }
   }, [route?.params?.tab]);
 
-  // Fetch feed on mount
-  useEffect(() => {
-    if (userId) {
-      fetchFeed(userId);
-    }
-  }, [userId]);
+  // Refetch current tab data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) return;
+      if (activeTab === 'feed') {
+        fetchFeed(userId);
+      } else if (activeTab === 'my-posts') {
+        fetchMyActivities(userId);
+      } else if (activeTab === 'joined') {
+        fetchJoinedActivities(userId);
+      }
+    }, [activeTab, userId])
+  );
 
   // Fetch tab-specific data when switching tabs
   useEffect(() => {
@@ -99,9 +107,7 @@ export default function MainFeedScreen({ navigation, route }: any) {
     const hostName = `${activity.host.first_name} ${activity.host.last_name}`;
     const initials = getInitials(activity.host.first_name, activity.host.last_name);
     const categoryLabel = getCategoryLabel(activity.category);
-    const skillLabel = activity.skill_level
-      ? activity.skill_level.charAt(0).toUpperCase() + activity.skill_level.slice(1).replace('_', ' ')
-      : null;
+    const skillLabel = activity.skill_level ? getSkillLabel(activity.skill_level) : null;
     const isHost = userId === activity.host_user_id;
 
     return (
@@ -165,7 +171,13 @@ export default function MainFeedScreen({ navigation, route }: any) {
 
         {!isHost && (
           <View style={styles.postActions}>
-            <TouchableOpacity style={styles.joinButton}>
+            <TouchableOpacity
+              style={styles.joinButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                navigation.navigate('ActivityDetail', { postId: activity.id });
+              }}
+            >
               <Text style={styles.joinButtonText}>+1 Join</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -206,7 +218,7 @@ export default function MainFeedScreen({ navigation, route }: any) {
             style={styles.iconButton}
             onPress={() => navigation.navigate('CreatePost')}
           >
-            <Ionicons name="add-circle-outline" size={28} color="#fff" />
+            <Ionicons name="add-outline" size={24} color="#fff" />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconButton}
@@ -334,10 +346,10 @@ const styles = StyleSheet.create({
   },
   headerIcons: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 16,
   },
   iconButton: {
-    padding: 4,
+    padding: 8,
   },
   tabs: {
     flexDirection: 'row',

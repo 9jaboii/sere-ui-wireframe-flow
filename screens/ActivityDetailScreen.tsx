@@ -6,13 +6,16 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { showAlert } from '../lib/alert';
 import { useActivityStore } from '../stores/activityStore';
 import { useAuthStore } from '../stores/authStore';
-import { getCategoryLabel, getInitials } from '../constants';
+import { useFavoriteStore } from '../stores/favoriteStore';
+import { getCategoryLabel, getInitials, getSkillLabel } from '../constants';
 import { JoinRequestWithUser } from '../types/database';
 import { supabase } from '../lib/supabase';
 
@@ -21,15 +24,30 @@ export default function ActivityDetailScreen({ navigation, route }: any) {
   const [attendees, setAttendees] = useState<JoinRequestWithUser[]>([]);
   const [isJoining, setIsJoining] = useState(false);
   const [hasRequested, setHasRequested] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState<JoinRequestWithUser[]>([]);
 
   const { user } = useAuthStore();
-  const { currentActivity, isLoading, fetchActivity, requestToJoin } = useActivityStore();
+  const { currentActivity, isLoading, fetchActivity, requestToJoin, cancelActivity, acceptRequest } = useActivityStore();
+  const { favoriteIds, toggleFavorite, fetchFavorites } = useFavoriteStore();
+
+  const isFav = favoriteIds.has(postId);
 
   useEffect(() => {
     fetchActivity(postId);
     fetchAttendees();
     checkExistingRequest();
+    if (user?.id) {
+      fetchFavorites(user.id);
+    }
   }, [postId]);
+
+  // Fetch pending requests when we know the user is host
+  useEffect(() => {
+    if (currentActivity && user?.id === currentActivity.host_user_id) {
+      fetchHostPendingRequests();
+    }
+  }, [currentActivity, user?.id]);
 
   const fetchAttendees = async () => {
     const { data } = await supabase
@@ -48,6 +66,26 @@ export default function ActivityDetailScreen({ navigation, route }: any) {
 
     if (data) {
       setAttendees(data as JoinRequestWithUser[]);
+    }
+  };
+
+  const fetchHostPendingRequests = async () => {
+    const { data } = await supabase
+      .from('join_requests')
+      .select(`
+        *,
+        requester:users!requester_id (
+          id,
+          first_name,
+          last_name,
+          avatar_color
+        )
+      `)
+      .eq('activity_id', postId)
+      .eq('status', 'pending');
+
+    if (data) {
+      setPendingRequests(data as JoinRequestWithUser[]);
     }
   };
 
@@ -79,6 +117,71 @@ export default function ActivityDetailScreen({ navigation, route }: any) {
     } else {
       setHasRequested(true);
       showAlert('Request Sent!', 'The host will review your request.');
+    }
+  };
+
+  const handleFavoriteToggle = () => {
+    if (!user) return;
+    toggleFavorite(user.id, postId);
+  };
+
+  const handleShare = async () => {
+    setShowMenu(false);
+    try {
+      await Share.share({
+        message: `Check out this activity on SERE: ${currentActivity?.description || ''}`,
+      });
+    } catch (err) {
+      // User cancelled share
+    }
+  };
+
+  const handleCancelActivity = () => {
+    setShowMenu(false);
+    showAlert('Cancel Activity', 'Are you sure you want to cancel this activity?', [
+      { text: 'No', style: 'cancel' },
+      {
+        text: 'Yes, Cancel',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await cancelActivity(postId);
+          if (error) {
+            showAlert('Error', 'Failed to cancel activity.');
+          } else {
+            showAlert('Canceled', 'Activity has been canceled.');
+            navigation.goBack();
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleEditActivity = () => {
+    setShowMenu(false);
+    navigation.navigate('EditActivity', { activityId: postId });
+  };
+
+  const handleAcceptRequest = async (requestId: string) => {
+    const { error } = await acceptRequest(requestId);
+    if (error) {
+      showAlert('Error', 'Failed to accept request.');
+    } else {
+      fetchHostPendingRequests();
+      fetchAttendees();
+      fetchActivity(postId);
+    }
+  };
+
+  const handleRejectRequest = async (requestId: string) => {
+    const { error } = await supabase
+      .from('join_requests')
+      .delete()
+      .eq('id', requestId);
+
+    if (error) {
+      showAlert('Error', 'Failed to reject request.');
+    } else {
+      fetchHostPendingRequests();
     }
   };
 
@@ -139,9 +242,7 @@ export default function ActivityDetailScreen({ navigation, route }: any) {
   const hostName = `${activity.host.first_name} ${activity.host.last_name}`;
   const hostInitials = getInitials(activity.host.first_name, activity.host.last_name);
   const categoryLabel = getCategoryLabel(activity.category);
-  const skillLabel = activity.skill_level
-    ? activity.skill_level.charAt(0).toUpperCase() + activity.skill_level.slice(1).replace('_', ' ')
-    : null;
+  const skillLabel = activity.skill_level ? getSkillLabel(activity.skill_level) : null;
   const isHost = user?.id === activity.host_user_id;
 
   return (
@@ -152,10 +253,43 @@ export default function ActivityDetailScreen({ navigation, route }: any) {
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Activity Details</Text>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => setShowMenu(true)}>
           <Ionicons name="ellipsis-horizontal" size={24} color="#000" />
         </TouchableOpacity>
       </View>
+
+      {/* 3-dot Menu Modal */}
+      <Modal
+        visible={showMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMenu(false)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowMenu(false)}
+        >
+          <View style={styles.menuContent}>
+            {isHost && (
+              <>
+                <TouchableOpacity style={styles.menuItem} onPress={handleEditActivity}>
+                  <Ionicons name="create-outline" size={20} color="#000" />
+                  <Text style={styles.menuItemText}>Edit Activity</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.menuItem} onPress={handleCancelActivity}>
+                  <Ionicons name="close-circle-outline" size={20} color="#EF4444" />
+                  <Text style={[styles.menuItemText, { color: '#EF4444' }]}>Cancel Activity</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            <TouchableOpacity style={styles.menuItem} onPress={handleShare}>
+              <Ionicons name="share-outline" size={20} color="#000" />
+              <Text style={styles.menuItemText}>Share Activity</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Host Info */}
@@ -168,8 +302,8 @@ export default function ActivityDetailScreen({ navigation, route }: any) {
               <Text style={styles.hostLabel}>Hosted by</Text>
               <Text style={styles.hostName}>{hostName}</Text>
             </View>
-            <TouchableOpacity style={styles.favoriteButton}>
-              <Ionicons name="star-outline" size={24} color="#000" />
+            <TouchableOpacity style={styles.favoriteButton} onPress={handleFavoriteToggle}>
+              <Ionicons name={isFav ? 'star' : 'star-outline'} size={24} color={isFav ? '#F59E0B' : '#000'} />
             </TouchableOpacity>
           </View>
         </View>
@@ -262,6 +396,39 @@ export default function ActivityDetailScreen({ navigation, route }: any) {
             <Text style={styles.noAttendeesText}>No one has joined yet. Be the first!</Text>
           )}
         </View>
+
+        {/* Pending Requests (Host Only) */}
+        {isHost && pendingRequests.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              Pending Requests ({pendingRequests.length})
+            </Text>
+            {pendingRequests.map((req) => {
+              const name = `${req.requester.first_name} ${req.requester.last_name}`;
+              const initials = getInitials(req.requester.first_name, req.requester.last_name);
+              return (
+                <View key={req.id} style={styles.pendingRow}>
+                  <View style={[styles.attendeeAvatar, { backgroundColor: req.requester.avatar_color || '#3B82F6' }]}>
+                    <Text style={styles.attendeeAvatarText}>{initials}</Text>
+                  </View>
+                  <Text style={[styles.attendeeName, { flex: 1 }]}>{name}</Text>
+                  <TouchableOpacity
+                    style={styles.acceptButton}
+                    onPress={() => handleAcceptRequest(req.id)}
+                  >
+                    <Text style={styles.acceptButtonText}>Accept</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.rejectButton}
+                    onPress={() => handleRejectRequest(req.id)}
+                  >
+                    <Text style={styles.rejectButtonText}>Reject</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </View>
+        )}
 
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -451,6 +618,35 @@ const styles = StyleSheet.create({
     color: '#999',
     fontStyle: 'italic',
   },
+  pendingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    gap: 8,
+  },
+  acceptButton: {
+    backgroundColor: '#000',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  acceptButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  rejectButton: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  rejectButtonText: {
+    color: '#666',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   bottomBar: {
     flexDirection: 'row',
     padding: 16,
@@ -483,5 +679,35 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 100,
+    paddingRight: 16,
+  },
+  menuContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    minWidth: 200,
+    paddingVertical: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  menuItemText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

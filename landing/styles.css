@@ -389,6 +389,34 @@ img {
 .waitlist-form {
   max-width: 480px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.waitlist-name-row {
+  display: flex;
+  gap: 12px;
+}
+
+.waitlist-name-row input {
+  flex: 1;
+  padding: 14px 18px;
+  font-size: 1rem;
+  border: 2px solid #333;
+  border-radius: 8px;
+  background: #111;
+  color: #fff;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.waitlist-name-row input::placeholder {
+  color: #666;
+}
+
+.waitlist-name-row input:focus {
+  border-color: #fff;
 }
 
 .waitlist-input-group {

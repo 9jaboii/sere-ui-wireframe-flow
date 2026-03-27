@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   Platform,
   Modal,
@@ -14,15 +13,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { format } from 'date-fns';
 import { showAlert } from '../lib/alert';
 import { useActivityStore } from '../stores/activityStore';
-import { useAuthStore } from '../stores/authStore';
-import { supabase } from '../lib/supabase';
 import { ActivityCategory, SkillLevel } from '../types/database';
 
-// Only import DateTimePicker on native platforms
 let DateTimePicker: any = null;
 if (Platform.OS !== 'web') {
   DateTimePicker = require('@react-native-community/datetimepicker').default;
@@ -42,7 +37,10 @@ const skillLevels: { label: string; value: SkillLevel }[] = [
   { label: 'Advanced players', value: 'advanced' },
 ];
 
-export default function CreatePostScreen({ navigation }: any) {
+export default function EditActivityScreen({ navigation, route }: any) {
+  const { activityId } = route.params;
+  const { currentActivity, fetchActivity, updateActivity } = useActivityStore();
+
   const [activityCategory, setActivityCategory] = useState<ActivityCategory | ''>('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
@@ -55,26 +53,40 @@ export default function CreatePostScreen({ navigation }: any) {
   const [maxAttendees, setMaxAttendees] = useState('');
   const [skillLevel, setSkillLevel] = useState<SkillLevel | ''>('');
   const [eventLink, setEventLink] = useState('');
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
-  const { user } = useAuthStore();
-  const { createActivity } = useActivityStore();
+  useEffect(() => {
+    fetchActivity(activityId);
+  }, [activityId]);
+
+  useEffect(() => {
+    if (currentActivity && !loaded) {
+      setActivityCategory(currentActivity.category);
+      setDescription(currentActivity.description);
+      setLocation(currentActivity.location_text);
+      setMaxAttendees(String(currentActivity.spots_total));
+      setSkillLevel(currentActivity.skill_level || '');
+      setEventLink(currentActivity.external_link || '');
+      // Parse date and time
+      const [year, month, day] = currentActivity.event_date.split('-').map(Number);
+      setSelectedDate(new Date(year, month - 1, day));
+      const [h, m] = currentActivity.event_time.split(':').map(Number);
+      const timeDate = new Date();
+      timeDate.setHours(h, m, 0, 0);
+      setSelectedTime(timeDate);
+      setLoaded(true);
+    }
+  }, [currentActivity, loaded]);
+
+  const getCategoryLabel = (value: ActivityCategory) => {
+    return categories.find((c) => c.value === value)?.label || '';
+  };
 
   const handleSubmit = async () => {
     if (!activityCategory || !description || !location || !selectedDate || !selectedTime || !maxAttendees) {
       showAlert('Missing Fields', 'Please fill in all required fields.');
-      return;
-    }
-
-    if (activityCategory === 'sport_gym' && !skillLevel) {
-      showAlert('Skill Level Required', 'Please select a skill level for Sport / Gym activities');
-      return;
-    }
-
-    if (!user) {
-      showAlert('Error', 'You must be logged in to create an activity.');
       return;
     }
 
@@ -88,11 +100,9 @@ export default function CreatePostScreen({ navigation }: any) {
     const eventTime = format(selectedTime, 'HH:mm:ss');
 
     setIsSubmitting(true);
-
-    const { error, data: newActivity } = await createActivity({
-      host_user_id: user.id,
-      category: activityCategory,
-      skill_level: activityCategory === 'sport_gym' && skillLevel ? skillLevel : null,
+    const { error } = await updateActivity(activityId, {
+      category: activityCategory as ActivityCategory,
+      skill_level: activityCategory === 'sport_gym' && skillLevel ? skillLevel as SkillLevel : null,
       description,
       event_date: eventDate,
       event_time: eventTime,
@@ -100,68 +110,14 @@ export default function CreatePostScreen({ navigation }: any) {
       spots_total: spotsTotal,
       external_link: eventLink || null,
     });
-
-    // Upload photo if selected and activity was created
-    if (!error && newActivity && photoUri) {
-      try {
-        const fileExt = photoUri.split('.').pop()?.toLowerCase() || 'jpg';
-        const filePath = `${user.id}/${newActivity.id}.${fileExt}`;
-
-        // Fetch the local image as a blob
-        const response = await fetch(photoUri);
-        const blob = await response.blob();
-
-        const { error: uploadError } = await supabase.storage
-          .from('activity-photos')
-          .upload(filePath, blob, { contentType: `image/${fileExt}`, upsert: true });
-
-        if (!uploadError) {
-          const { data: urlData } = supabase.storage
-            .from('activity-photos')
-            .getPublicUrl(filePath);
-
-          // Update activity with photo URL
-          await supabase
-            .from('activities')
-            .update({ photo_url: urlData.publicUrl })
-            .eq('id', newActivity.id);
-        }
-      } catch (uploadErr) {
-        console.warn('Photo upload failed:', uploadErr);
-        showAlert('Photo Upload Failed', 'Your activity was created but the photo could not be uploaded. You can try editing the activity to add a photo later.');
-      }
-    }
-
     setIsSubmitting(false);
 
     if (error) {
-      showAlert('Error', error.message || 'Failed to create activity.');
+      showAlert('Error', 'Failed to update activity.');
     } else {
-      showAlert('Success!', 'Your activity has been posted.', [
-        {
-          text: 'View My Posts',
-          onPress: () => navigation.navigate('MainFeed', { tab: 'my-posts' }),
-        },
+      showAlert('Updated', 'Activity has been updated.', [
+        { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-    }
-  };
-
-  const handleAddPhoto = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      showAlert('Permission needed', 'Please allow access to your photo library to add photos.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [16, 9],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setPhotoUri(result.assets[0].uri);
     }
   };
 
@@ -175,27 +131,34 @@ export default function CreatePostScreen({ navigation }: any) {
     if (date) setSelectedTime(date);
   };
 
-  const getCategoryLabel = (value: ActivityCategory) => {
-    return categories.find((c) => c.value === value)?.label || '';
-  };
+  if (!loaded) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Edit Activity</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#000" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Create Activity</Text>
+        <Text style={styles.headerTitle}>Edit Activity</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.banner}>
-          <Text style={styles.bannerText}>Post an activity and find people ready to join you today!</Text>
-        </View>
-
-        {/* Activity Details */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Activity Details</Text>
 
@@ -205,7 +168,7 @@ export default function CreatePostScreen({ navigation }: any) {
             onPress={() => setShowCategoryPicker(true)}
           >
             <Text style={activityCategory ? styles.dropdownValueText : styles.dropdownPlaceholderText}>
-              {activityCategory ? getCategoryLabel(activityCategory) : 'Select a category...'}
+              {activityCategory ? getCategoryLabel(activityCategory as ActivityCategory) : 'Select a category...'}
             </Text>
             <Ionicons name="chevron-down" size={20} color="#666" />
           </TouchableOpacity>
@@ -237,14 +200,10 @@ export default function CreatePostScreen({ navigation }: any) {
                         setShowCategoryPicker(false);
                       }}
                     >
-                      <Text
-                        style={[
-                          styles.modalOptionText,
-                          activityCategory === item.value && styles.modalOptionTextActive,
-                        ]}
-                      >
-                        {item.label}
-                      </Text>
+                      <Text style={[
+                        styles.modalOptionText,
+                        activityCategory === item.value && styles.modalOptionTextActive,
+                      ]}>{item.label}</Text>
                       {activityCategory === item.value && (
                         <Ionicons name="checkmark" size={20} color="#000" />
                       )}
@@ -268,14 +227,10 @@ export default function CreatePostScreen({ navigation }: any) {
                     ]}
                     onPress={() => setSkillLevel(level.value)}
                   >
-                    <Text
-                      style={[
-                        styles.skillLevelText,
-                        skillLevel === level.value && styles.skillLevelTextActive,
-                      ]}
-                    >
-                      {level.label}
-                    </Text>
+                    <Text style={[
+                      styles.skillLevelText,
+                      skillLevel === level.value && styles.skillLevelTextActive,
+                    ]}>{level.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -285,41 +240,20 @@ export default function CreatePostScreen({ navigation }: any) {
           <Text style={styles.label}>Description *</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
-            placeholder="Give more details about what you want to do..."
             value={description}
             onChangeText={setDescription}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
           />
-
-          <Text style={styles.label}>Activity Photo (Optional)</Text>
-          {photoUri ? (
-            <View style={styles.photoContainer}>
-              <Image source={{ uri: photoUri }} style={styles.photo} />
-              <TouchableOpacity
-                style={styles.removePhotoButton}
-                onPress={() => setPhotoUri(null)}
-              >
-                <Ionicons name="close-circle" size={28} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity style={styles.addPhotoButton} onPress={handleAddPhoto}>
-              <Ionicons name="camera-outline" size={40} color="#666" />
-              <Text style={styles.addPhotoText}>Tap to add photo</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
-        {/* When & Where */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>When & Where</Text>
 
           <Text style={styles.label}>Location *</Text>
           <TextInput
             style={styles.input}
-            placeholder="Where should everyone meet?"
             value={location}
             onChangeText={setLocation}
           />
@@ -343,8 +277,6 @@ export default function CreatePostScreen({ navigation }: any) {
                     borderRadius: 8,
                     padding: 12,
                     fontSize: 14,
-                    borderWidth: 1,
-                    borderColor: '#e5e5e5',
                     border: '1px solid #e5e5e5',
                     fontFamily: 'inherit',
                     width: '100%',
@@ -353,10 +285,7 @@ export default function CreatePostScreen({ navigation }: any) {
                 />
               ) : (
                 <>
-                  <TouchableOpacity
-                    style={styles.input}
-                    onPress={() => setShowDatePicker(true)}
-                  >
+                  <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
                     <Text style={selectedDate ? styles.pickerValueText : styles.pickerPlaceholderText}>
                       {selectedDate ? format(selectedDate, 'MMM d, yyyy') : 'Select date'}
                     </Text>
@@ -393,8 +322,6 @@ export default function CreatePostScreen({ navigation }: any) {
                     borderRadius: 8,
                     padding: 12,
                     fontSize: 14,
-                    borderWidth: 1,
-                    borderColor: '#e5e5e5',
                     border: '1px solid #e5e5e5',
                     fontFamily: 'inherit',
                     width: '100%',
@@ -403,10 +330,7 @@ export default function CreatePostScreen({ navigation }: any) {
                 />
               ) : (
                 <>
-                  <TouchableOpacity
-                    style={styles.input}
-                    onPress={() => setShowTimePicker(true)}
-                  >
+                  <TouchableOpacity style={styles.input} onPress={() => setShowTimePicker(true)}>
                     <Text style={selectedTime ? styles.pickerValueText : styles.pickerPlaceholderText}>
                       {selectedTime ? format(selectedTime, 'h:mm a') : 'Select time'}
                     </Text>
@@ -424,10 +348,9 @@ export default function CreatePostScreen({ navigation }: any) {
             </View>
           </View>
 
-          <Text style={styles.label}>Number of People Needed (max 12) *</Text>
+          <Text style={styles.label}>Number of People (max 12) *</Text>
           <TextInput
             style={styles.input}
-            placeholder="How many people?"
             value={maxAttendees}
             onChangeText={setMaxAttendees}
             keyboardType="numeric"
@@ -436,15 +359,11 @@ export default function CreatePostScreen({ navigation }: any) {
           <Text style={styles.label}>Link (Optional)</Text>
           <TextInput
             style={styles.input}
-            placeholder="https://..."
             value={eventLink}
             onChangeText={setEventLink}
             keyboardType="url"
             autoCapitalize="none"
           />
-          <Text style={styles.helperText}>
-            Add a link to help people understand the activity (menu, tickets, etc.)
-          </Text>
         </View>
 
         <TouchableOpacity
@@ -455,7 +374,7 @@ export default function CreatePostScreen({ navigation }: any) {
           {isSubmitting ? (
             <ActivityIndicator color="#ffffff" />
           ) : (
-            <Text style={styles.submitButtonText}>Post Activity</Text>
+            <Text style={styles.submitButtonText}>Save Changes</Text>
           )}
         </TouchableOpacity>
 
@@ -466,210 +385,41 @@ export default function CreatePostScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-  },
+  container: { flex: 1, backgroundColor: '#ffffff' },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#e5e5e5',
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  content: {
-    flex: 1,
-  },
-  banner: {
-    backgroundColor: '#000000',
-    padding: 20,
-    alignItems: 'center',
-  },
-  bannerText: {
-    color: '#ffffff',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  section: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-    marginTop: 12,
-  },
-  input: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: '#e5e5e5',
-  },
-  textArea: {
-    height: 100,
-    paddingTop: 12,
-  },
+  headerTitle: { fontSize: 18, fontWeight: '600' },
+  content: { flex: 1 },
+  section: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#e5e5e5' },
+  sectionTitle: { fontSize: 18, fontWeight: '600', marginBottom: 16 },
+  label: { fontSize: 14, fontWeight: '600', marginBottom: 8, marginTop: 12 },
+  input: { backgroundColor: '#f5f5f5', borderRadius: 8, padding: 12, fontSize: 14, borderWidth: 1, borderColor: '#e5e5e5' },
+  textArea: { height: 100, paddingTop: 12 },
   dropdownButton: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#e5e5e5',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    backgroundColor: '#f5f5f5', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: '#e5e5e5',
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
-  dropdownValueText: {
-    fontSize: 14,
-    color: '#000',
-  },
-  dropdownPlaceholderText: {
-    fontSize: 14,
-    color: '#999',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    width: '100%',
-    maxWidth: 360,
-    paddingVertical: 16,
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
-  },
-  modalOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  modalOptionActive: {
-    backgroundColor: '#f5f5f5',
-  },
-  modalOptionText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  modalOptionTextActive: {
-    fontWeight: '600',
-    color: '#000',
-  },
-  skillLevelContainer: {
-    gap: 8,
-  },
-  skillLevelButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e5e5e5',
-    backgroundColor: '#f5f5f5',
-  },
-  skillLevelButtonActive: {
-    backgroundColor: '#000000',
-    borderColor: '#000000',
-  },
-  skillLevelText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  skillLevelTextActive: {
-    color: '#ffffff',
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  halfWidth: {
-    flex: 1,
-  },
-  pickerValueText: {
-    fontSize: 14,
-    color: '#000',
-  },
-  pickerPlaceholderText: {
-    fontSize: 14,
-    color: '#999',
-  },
-  helperText: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
-  },
-  photoContainer: {
-    position: 'relative',
-    marginTop: 8,
-  },
-  photo: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-  },
-  removePhotoButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 14,
-  },
-  addPhotoButton: {
-    borderWidth: 2,
-    borderColor: '#e5e5e5',
-    borderStyle: 'dashed',
-    borderRadius: 8,
-    padding: 40,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  addPhotoText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#666',
-  },
-  submitButton: {
-    backgroundColor: '#000000',
-    marginHorizontal: 16,
-    marginTop: 20,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  dropdownValueText: { fontSize: 14, color: '#000' },
+  dropdownPlaceholderText: { fontSize: 14, color: '#999' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 32 },
+  modalContent: { backgroundColor: '#fff', borderRadius: 12, width: '100%', maxWidth: 360, paddingVertical: 16 },
+  modalTitle: { fontSize: 16, fontWeight: '600', paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#e5e5e5' },
+  modalOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  modalOptionActive: { backgroundColor: '#f5f5f5' },
+  modalOptionText: { fontSize: 14, color: '#333' },
+  modalOptionTextActive: { fontWeight: '600', color: '#000' },
+  skillLevelContainer: { gap: 8 },
+  skillLevelButton: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: '#e5e5e5', backgroundColor: '#f5f5f5' },
+  skillLevelButtonActive: { backgroundColor: '#000000', borderColor: '#000000' },
+  skillLevelText: { fontSize: 14, color: '#333' },
+  skillLevelTextActive: { color: '#ffffff' },
+  row: { flexDirection: 'row', gap: 12 },
+  halfWidth: { flex: 1 },
+  pickerValueText: { fontSize: 14, color: '#000' },
+  pickerPlaceholderText: { fontSize: 14, color: '#999' },
+  submitButton: { backgroundColor: '#000000', marginHorizontal: 16, marginTop: 20, padding: 16, borderRadius: 8, alignItems: 'center' },
+  submitButtonDisabled: { opacity: 0.6 },
+  submitButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
 });
