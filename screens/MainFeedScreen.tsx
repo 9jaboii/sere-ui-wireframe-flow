@@ -212,7 +212,7 @@ export default function MainFeedScreen({ navigation, route }: any) {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.logo}>[şere]</Text>
+        <Image source={require('../assets/sere_black.png')} style={styles.logoImage} />
         <View style={styles.headerIcons}>
           <TouchableOpacity
             style={styles.iconButton}
@@ -343,6 +343,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#ffffff',
+  },
+  logoImage: {
+    width: 80,
+    height: 30,
+    resizeMode: 'contain',
+    tintColor: '#ffffff',
   },
   headerIcons: {
     flexDirection: 'row',

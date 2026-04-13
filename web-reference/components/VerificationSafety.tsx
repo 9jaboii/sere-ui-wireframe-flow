@@ -61,7 +61,7 @@ export function VerificationSafety({ onBack, onSignOut }: VerificationSafetyProp
           </div>
           <h1 className="text-2xl sm:text-3xl mb-2">Verification & Safety</h1>
           <p className="text-muted-foreground text-sm sm:text-base">
-            Build trust and stay safe in the [şere] community 🛡️
+            Build trust and stay safe in the <img src="/sere_black.png" alt="şere" className="h-5 inline align-middle" /> community 🛡️
           </p>
         </div>
 

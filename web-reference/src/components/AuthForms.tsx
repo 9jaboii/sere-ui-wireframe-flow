@@ -95,7 +95,7 @@ export function AuthForms({ isLogin, onBack, onAuthSuccess, onToggleMode }: Auth
               <div className="w-14 h-14 sm:w-16 sm:h-16 bg-black rounded-full flex items-center justify-center mx-auto">
                 <span className="text-2xl sm:text-3xl">👋</span>
               </div>
-              <CardTitle className="text-xl sm:text-2xl">{isLogin ? "Welcome Back!" : "Join [şere]"}</CardTitle>
+              <CardTitle className="text-xl sm:text-2xl">{isLogin ? "Welcome Back!" : <span className="flex items-center justify-center gap-2">Join <img src="/sere_black.png" alt="şere" className="h-6 sm:h-7 inline" /></span>}</CardTitle>
               <CardDescription className="text-sm sm:text-base">
                 {isLogin 
                   ? "Sign in to your account" 

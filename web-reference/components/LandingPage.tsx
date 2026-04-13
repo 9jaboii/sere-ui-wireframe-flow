@@ -41,7 +41,7 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
       <div className="py-12 sm:py-20 md:py-24 bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12 sm:mb-16">
-            <h2 className="text-2xl sm:text-3xl mb-3 sm:mb-4">How [şere] Works</h2>
+            <h2 className="text-2xl sm:text-3xl mb-3 sm:mb-4 flex items-center justify-center gap-2">How <img src="/sere_black.png" alt="şere" className="h-7 sm:h-8 inline" /> Works</h2>
             <p className="text-base sm:text-lg md:text-xl text-muted-foreground">
               Get connected in 3 simple steps
             </p>

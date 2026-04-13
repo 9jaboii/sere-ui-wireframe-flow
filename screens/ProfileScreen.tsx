@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Linking,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -207,7 +208,8 @@ export default function ProfileScreen({ navigation }: any) {
         )}
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>[şere] - Never go alone</Text>
+          <Image source={require('../assets/sere_black.png')} style={styles.footerLogo} />
+          <Text style={styles.footerText}>Never go alone</Text>
           <Text style={styles.footerVersion}>Version 0.1.0 MVP</Text>
         </View>
       </ScrollView>
@@ -405,6 +407,12 @@ const styles = StyleSheet.create({
   footer: {
     alignItems: 'center',
     paddingVertical: 32,
+  },
+  footerLogo: {
+    width: 80,
+    height: 30,
+    resizeMode: 'contain',
+    marginBottom: 4,
   },
   footerText: {
     fontSize: 14,

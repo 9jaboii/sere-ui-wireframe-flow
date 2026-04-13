@@ -10,6 +10,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -193,7 +194,7 @@ export default function AuthScreen() {
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
-            <Text style={styles.logo}>[şere]</Text>
+            <Image source={require('../assets/sere_black.png')} style={styles.logoImage} />
             <Text style={styles.tagline}>Never go alone</Text>
 
             <View style={styles.form}>
@@ -334,6 +335,13 @@ const styles = StyleSheet.create({
     fontSize: 48,
     fontWeight: 'bold',
     color: '#ffffff',
+    marginBottom: 8,
+  },
+  logoImage: {
+    width: 180,
+    height: 70,
+    resizeMode: 'contain',
+    tintColor: '#ffffff',
     marginBottom: 8,
   },
   tagline: {

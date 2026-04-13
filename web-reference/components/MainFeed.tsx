@@ -195,7 +195,7 @@ export function MainFeed({ onCreatePost, onViewActivity, onViewProfile, onViewNo
       {/* Header */}
       <div className="border-b bg-black z-50 shadow-sm flex-shrink-0">
         <div className="max-w-4xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between">
-          <h1 className="text-lg sm:text-xl text-white">[şere]</h1>
+          <img src="/sere_black.png" alt="şere" className="h-7 sm:h-8 invert" />
           <div className="flex items-center gap-1 sm:gap-2">
             <Button variant="ghost" size="icon" onClick={onCreatePost} className="text-white hover:bg-white/20 h-8 w-8 sm:h-10 sm:w-10">
               <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
