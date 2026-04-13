@@ -15,6 +15,7 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
       <div className="relative overflow-hidden bg-black border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20 md:py-24 relative">
           <div className="text-center">
+            <img src="/sere_black.png" alt="şere" className="h-12 sm:h-16 md:h-20 mx-auto mb-6 sm:mb-8 invert" />
             <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white px-3 sm:px-4 py-2 rounded-full mb-4 sm:mb-6">
               <span>✨</span>
               <span className="text-xs sm:text-sm">Join thousands finding their squad</span>
