@@ -7,3 +7,4 @@ cp landing/robots.txt dist/robots.txt
 cp landing/sitemap.xml dist/sitemap.xml
 cp landing/favicon.svg dist/favicon.svg
 cp landing/og-image.png dist/og-image.png 2>/dev/null || true
+cp landing/sere_black.png dist/sere_black.png
