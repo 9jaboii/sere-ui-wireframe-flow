@@ -218,25 +218,25 @@ export default function MainFeedScreen({ navigation, route }: any) {
             style={styles.iconButton}
             onPress={() => navigation.navigate('CreatePost')}
           >
-            <Ionicons name="add-outline" size={24} color="#fff" />
+            <Ionicons name="add-outline" size={22} color="rgba(255,255,255,0.85)" />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconButton}
-            onPress={() => navigation.navigate('Chats')}
+            onPress={() => navigation.navigate('Messages')}
           >
-            <Ionicons name="chatbubble-outline" size={24} color="#fff" />
+            <Ionicons name="chatbubble-outline" size={22} color="rgba(255,255,255,0.85)" />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconButton}
             onPress={() => navigation.navigate('Notifications')}
           >
-            <Ionicons name="notifications-outline" size={24} color="#fff" />
+            <Ionicons name="notifications-outline" size={22} color="rgba(255,255,255,0.85)" />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconButton}
             onPress={() => navigation.navigate('Profile')}
           >
-            <Ionicons name="person-outline" size={24} color="#fff" />
+            <Ionicons name="person-outline" size={22} color="rgba(255,255,255,0.85)" />
           </TouchableOpacity>
         </View>
       </View>
@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
   postImageOverlayText: {
     color: '#ffffff',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   postImagePlaceholder: {
     width: '100%',
@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
   },
   postImagePlaceholderText: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#333',
   },
   postDescription: {

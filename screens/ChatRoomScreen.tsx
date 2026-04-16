@@ -33,7 +33,7 @@ export default function ChatRoomScreen({ navigation, route }: any) {
   const [roomId, setRoomId] = useState<string | null>(existingRoomId || null);
   const [messageText, setMessageText] = useState('');
   const [initializing, setInitializing] = useState(!existingRoomId);
-  const [activityName, setActivityName] = useState('Chat');
+  const [activityName, setActivityName] = useState('Messages');
   const flatListRef = useRef<FlatList>(null);
 
   const { user } = useAuthStore();

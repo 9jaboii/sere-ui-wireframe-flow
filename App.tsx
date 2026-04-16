@@ -13,7 +13,7 @@ import MainFeedScreen from './screens/MainFeedScreen';
 import CreatePostScreen from './screens/CreatePostScreen';
 import ActivityDetailScreen from './screens/ActivityDetailScreen';
 import ProfileScreen from './screens/ProfileScreen';
-import ChatsScreen from './screens/ChatsScreen';
+import MessagesScreen from './screens/MessagesScreen';
 import ChatRoomScreen from './screens/ChatRoomScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import AuthScreen from './screens/AuthScreen';
@@ -33,7 +33,7 @@ const linking = {
     screens: {
       MainFeed: '',
       Profile: 'profile',
-      Chats: 'chats',
+      Messages: 'messages',
       Notifications: 'notifications',
     },
   },
@@ -123,7 +123,7 @@ export default function App() {
           <Stack.Screen name="CreatePost" component={CreatePostScreen} />
           <Stack.Screen name="ActivityDetail" component={ActivityDetailScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
-          <Stack.Screen name="Chats" component={ChatsScreen} />
+          <Stack.Screen name="Messages" component={MessagesScreen} />
           <Stack.Screen name="ChatRoom" component={ChatRoomScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen name="EditActivity" component={EditActivityScreen} />

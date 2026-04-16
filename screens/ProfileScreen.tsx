@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,13 +13,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { showAlert } from '../lib/alert';
 import { useAuthStore } from '../stores/authStore';
-import { getInitials, AVATAR_COLORS } from '../constants';
+import { useFavoriteStore } from '../stores/favoriteStore';
+import { ActivityWithHost } from '../types/database';
+import { getInitials, getCategoryLabel, getSkillLabel, AVATAR_COLORS } from '../constants';
 
 export default function ProfileScreen({ navigation }: any) {
   const [activeTab, setActiveTab] = useState('profile');
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const { user, signOut, deleteAccount, updateUser } = useAuthStore();
+  const { favoriteActivities, isLoading: favLoading, fetchFavoriteActivities } = useFavoriteStore();
+
+  useEffect(() => {
+    if (user?.id && activeTab === 'favorites') {
+      fetchFavoriteActivities(user.id);
+    }
+  }, [activeTab, user?.id]);
 
   const userName = user ? `${user.first_name} ${user.last_name}` : 'User';
   const userEmail = user?.email || '';
@@ -104,6 +113,14 @@ export default function ProfileScreen({ navigation }: any) {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
+          style={[styles.tab, activeTab === 'favorites' && styles.tabActive]}
+          onPress={() => setActiveTab('favorites')}
+        >
+          <Text style={[styles.tabText, activeTab === 'favorites' && styles.tabTextActive]}>
+            Favorites
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           style={[styles.tab, activeTab === 'account' && styles.tabActive]}
           onPress={() => setActiveTab('account')}
         >
@@ -145,6 +162,59 @@ export default function ProfileScreen({ navigation }: any) {
                 </View>
               </View>
             </View>
+          </View>
+        )}
+
+        {/* Favorites Tab */}
+        {activeTab === 'favorites' && (
+          <View style={styles.favoritesContainer}>
+            {favLoading ? (
+              <View style={styles.favLoadingState}>
+                <ActivityIndicator size="large" color="#000" />
+              </View>
+            ) : favoriteActivities.length > 0 ? (
+              favoriteActivities.map((activity) => {
+                if (!activity.host) return null;
+                const hostName = `${activity.host.first_name} ${activity.host.last_name}`;
+                const initials = getInitials(activity.host.first_name, activity.host.last_name);
+                const categoryLabel = getCategoryLabel(activity.category);
+                return (
+                  <TouchableOpacity
+                    key={activity.id}
+                    style={styles.favCard}
+                    onPress={() => navigation.navigate('ActivityDetail', { postId: activity.id })}
+                  >
+                    <View style={styles.favCardHeader}>
+                      <View style={[styles.favAvatar, { backgroundColor: activity.host.avatar_color || '#3B82F6' }]}>
+                        <Text style={styles.favAvatarText}>{initials}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.favHostName}>{hostName}</Text>
+                        <Text style={styles.favCategory}>{categoryLabel}</Text>
+                      </View>
+                      <Ionicons name="star" size={18} color="#F59E0B" />
+                    </View>
+                    <Text style={styles.favDescription} numberOfLines={2}>{activity.description}</Text>
+                    <View style={styles.favDetails}>
+                      <Ionicons name="location-outline" size={14} color="#666" />
+                      <Text style={styles.favDetailText}>{activity.location_text}</Text>
+                      <Ionicons name="people-outline" size={14} color="#666" style={{ marginLeft: 12 }} />
+                      <Text style={styles.favDetailText}>
+                        {activity.spots_filled}/{activity.spots_total}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            ) : (
+              <View style={styles.favEmptyState}>
+                <Ionicons name="star-outline" size={64} color="#ccc" />
+                <Text style={styles.favEmptyText}>No favorites yet</Text>
+                <Text style={styles.favEmptySubtext}>
+                  Star activities from the feed to save them here
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -403,6 +473,77 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '600',
     fontSize: 14,
+  },
+  favoritesContainer: {
+    padding: 16,
+  },
+  favLoadingState: {
+    paddingVertical: 80,
+    alignItems: 'center',
+  },
+  favCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+  },
+  favCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  favAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  favAvatarText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  favHostName: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  favCategory: {
+    fontSize: 12,
+    color: '#666',
+  },
+  favDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#333',
+    marginBottom: 8,
+  },
+  favDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  favDetailText: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 4,
+  },
+  favEmptyState: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  favEmptyText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  favEmptySubtext: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
   },
   footer: {
     alignItems: 'center',

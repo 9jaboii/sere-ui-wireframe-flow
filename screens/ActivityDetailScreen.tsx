@@ -28,7 +28,7 @@ export default function ActivityDetailScreen({ navigation, route }: any) {
   const [pendingRequests, setPendingRequests] = useState<JoinRequestWithUser[]>([]);
 
   const { user } = useAuthStore();
-  const { currentActivity, isLoading, fetchActivity, requestToJoin, cancelActivity, acceptRequest } = useActivityStore();
+  const { currentActivity, isLoading, fetchActivity, requestToJoin, cancelActivity, deleteActivity, acceptRequest } = useActivityStore();
   const { favoriteIds, toggleFavorite, fetchFavorites } = useFavoriteStore();
 
   const isFav = favoriteIds.has(postId);
@@ -149,6 +149,26 @@ export default function ActivityDetailScreen({ navigation, route }: any) {
             showAlert('Error', 'Failed to cancel activity.');
           } else {
             showAlert('Canceled', 'Activity has been canceled.');
+            navigation.goBack();
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleDeleteActivity = () => {
+    setShowMenu(false);
+    showAlert('Delete Activity', 'Are you sure you want to permanently delete this activity? This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          if (!user) return;
+          const { error } = await deleteActivity(postId, user.id);
+          if (error) {
+            showAlert('Error', 'Failed to delete activity.');
+          } else {
             navigation.goBack();
           }
         },
@@ -280,6 +300,10 @@ export default function ActivityDetailScreen({ navigation, route }: any) {
                 <TouchableOpacity style={styles.menuItem} onPress={handleCancelActivity}>
                   <Ionicons name="close-circle-outline" size={20} color="#EF4444" />
                   <Text style={[styles.menuItemText, { color: '#EF4444' }]}>Cancel Activity</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.menuItem} onPress={handleDeleteActivity}>
+                  <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                  <Text style={[styles.menuItemText, { color: '#EF4444' }]}>Delete Activity</Text>
                 </TouchableOpacity>
               </>
             )}

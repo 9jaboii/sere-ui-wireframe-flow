@@ -29,7 +29,7 @@ const formatTime = (dateStr: string | null) => {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-export default function ChatsScreen({ navigation }: any) {
+export default function MessagesScreen({ navigation }: any) {
   const { user } = useAuthStore();
   const { chatRooms, isLoading, fetchChatRooms } = useChatStore();
 
@@ -56,7 +56,7 @@ export default function ChatsScreen({ navigation }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Chats</Text>
+        <Text style={styles.headerTitle}>Messages</Text>
         <View style={{ width: 24 }} />
       </View>
 

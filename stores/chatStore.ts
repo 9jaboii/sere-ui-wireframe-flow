@@ -156,11 +156,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
   getOrCreateChatRoom: async (activityId, userId) => {
     try {
       // Check if a chat room already exists for this activity
-      const { data: existingRoom } = await supabase
+      const { data: existingRoom, error: lookupError } = await supabase
         .from('chat_rooms')
         .select('id')
         .eq('activity_id', activityId)
         .maybeSingle();
+
+      if (lookupError) throw lookupError;
 
       let roomId: string;
 
@@ -180,8 +182,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
           .select('id')
           .single();
 
-        if (createError) throw createError;
-        roomId = newRoom.id;
+        if (createError) {
+          // Handle UNIQUE constraint violation — another user created it concurrently
+          if (createError.code === '23505') {
+            const { data: retryRoom, error: retryError } = await supabase
+              .from('chat_rooms')
+              .select('id')
+              .eq('activity_id', activityId)
+              .maybeSingle();
+            if (retryError || !retryRoom) throw retryError || new Error('Chat room not found after conflict');
+            roomId = retryRoom.id;
+          } else {
+            throw createError;
+          }
+        } else {
+          roomId = newRoom.id;
+        }
       }
 
       // Ensure user is a member

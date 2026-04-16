@@ -19,6 +19,7 @@ interface ActivityState {
   createActivity: (activity: ActivityInsert) => Promise<{ error: Error | null; data: Activity | null }>;
   updateActivity: (activityId: string, updates: Partial<Activity>) => Promise<{ error: Error | null }>;
   cancelActivity: (activityId: string) => Promise<{ error: Error | null }>;
+  deleteActivity: (activityId: string, userId: string) => Promise<{ error: Error | null }>;
   requestToJoin: (activityId: string, userId: string) => Promise<{ error: Error | null }>;
   acceptRequest: (requestId: string) => Promise<{ error: Error | null }>;
   rejectRequest: (requestId: string) => Promise<{ error: Error | null }>;
@@ -214,12 +215,42 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     return get().updateActivity(activityId, { status: 'canceled' });
   },
 
+  deleteActivity: async (activityId, userId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { error } = await supabase
+        .from('activities')
+        .delete()
+        .eq('id', activityId)
+        .eq('host_user_id', userId);
+
+      if (error) throw error;
+
+      // Remove from local state
+      set((state) => ({
+        activities: state.activities.filter((a) => a.id !== activityId),
+        myActivities: state.myActivities.filter((a) => a.id !== activityId),
+        currentActivity: state.currentActivity?.id === activityId ? null : state.currentActivity,
+        isLoading: false,
+      }));
+      return { error: null };
+    } catch (error) {
+      console.error('Error deleting activity:', error);
+      set({ error: (error as Error).message, isLoading: false });
+      return { error: error as Error };
+    }
+  },
+
   requestToJoin: async (activityId, userId) => {
     set({ isLoading: true, error: null });
     try {
       // Check if can still request (capacity check)
-      const { data: canRequest } = await supabase
-        .rpc('can_request_join', { activity_id: activityId });
+      const { data: canRequest, error: rpcError } = await supabase
+        .rpc('can_request_join', { p_activity_id: activityId });
+
+      if (rpcError) {
+        throw new Error('Unable to check activity capacity');
+      }
 
       if (!canRequest) {
         throw new Error('Activity is full');
@@ -231,7 +262,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         .select('id')
         .eq('activity_id', activityId)
         .eq('requester_id', userId)
-        .single();
+        .maybeSingle();
 
       if (existingRequest) {
         throw new Error('Already requested to join');
