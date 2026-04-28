@@ -79,7 +79,9 @@ export default function ChatRoomScreen({ navigation, route }: any) {
       const { roomId: newRoomId, error } = await getOrCreateChatRoom(activityId, userId);
       if (error) {
         console.error('Failed to get/create chat room:', error);
-        showAlert('Chat Error', 'Unable to open chat room. Please try again later.');
+        const detail = (error as any)?.message || String(error);
+        const code = (error as any)?.code ? ` [${(error as any).code}]` : '';
+        showAlert('Chat Error', `Unable to open chat room${code}: ${detail}`);
         setInitializing(false);
         navigation.goBack();
         return;
