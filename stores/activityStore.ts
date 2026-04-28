@@ -35,40 +35,10 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   isLoading: false,
   error: null,
 
-  fetchFeed: async (userId) => {
+  fetchFeed: async (_userId) => {
     set({ isLoading: true, error: null });
     try {
-      // Get visible activity IDs via RPC (own + friends + friends-of-friends)
-      const { data: rpcData, error: rpcError } = await supabase
-        .rpc('get_visible_activities', { current_user_id: userId })
-        .order('event_date', { ascending: true })
-        .order('event_time', { ascending: true });
-
-      if (!rpcError && rpcData && rpcData.length > 0) {
-        // Re-fetch with host join so renderPost has the data it needs
-        const activityIds = rpcData.map((a: any) => a.id);
-        const { data, error } = await supabase
-          .from('activities')
-          .select(`
-            *,
-            host:users!host_user_id (
-              id,
-              first_name,
-              last_name,
-              avatar_color
-            )
-          `)
-          .in('id', activityIds)
-          .order('event_date', { ascending: true })
-          .order('event_time', { ascending: true });
-
-        if (error) throw error;
-        set({ activities: data || [], isLoading: false });
-        return;
-      }
-
-      // Fallback: fetch all active activities (includes own)
-      const { data: fallbackData, error: fallbackError } = await supabase
+      const { data, error } = await supabase
         .from('activities')
         .select(`
           *,
@@ -84,8 +54,8 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         .order('event_date', { ascending: true })
         .order('event_time', { ascending: true });
 
-      if (fallbackError) throw fallbackError;
-      set({ activities: fallbackData || [], isLoading: false });
+      if (error) throw error;
+      set({ activities: data || [], isLoading: false });
     } catch (error) {
       console.error('Error fetching feed:', error);
       set({ error: (error as Error).message, isLoading: false });

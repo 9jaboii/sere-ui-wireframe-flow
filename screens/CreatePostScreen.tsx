@@ -15,12 +15,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as Crypto from 'expo-crypto';
 import { format } from 'date-fns';
 import { showAlert } from '../lib/alert';
 import { useActivityStore } from '../stores/activityStore';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../lib/supabase';
 import { ActivityCategory, SkillLevel } from '../types/database';
+
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const MAX_PHOTO_LONG_EDGE = 1600;
+const ALLOWED_PHOTO_MIME = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
 // Only import DateTimePicker on native platforms
 let DateTimePicker: any = null;
@@ -89,7 +95,46 @@ export default function CreatePostScreen({ navigation }: any) {
 
     setIsSubmitting(true);
 
-    const { error, data: newActivity } = await createActivity({
+    const activityId = Crypto.randomUUID();
+    let uploadedPath: string | null = null;
+    let photoUrl: string | null = null;
+
+    if (photoUri) {
+      try {
+        const compressed = await ImageManipulator.manipulateAsync(
+          photoUri,
+          [{ resize: { width: MAX_PHOTO_LONG_EDGE } }],
+          { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG },
+        );
+
+        const response = await fetch(compressed.uri);
+        const blob = await response.blob();
+
+        if (blob.size > MAX_PHOTO_BYTES) {
+          throw new Error('Photo is still over 5 MB after compression. Please choose a smaller image.');
+        }
+
+        const filePath = `${user.id}/${activityId}.jpg`;
+        const { error: uploadError } = await supabase.storage
+          .from('activity-photos')
+          .upload(filePath, blob, { contentType: 'image/jpeg', upsert: false });
+
+        if (uploadError) throw uploadError;
+        uploadedPath = filePath;
+
+        const { data: urlData } = supabase.storage
+          .from('activity-photos')
+          .getPublicUrl(filePath);
+        photoUrl = urlData.publicUrl;
+      } catch (uploadErr: any) {
+        setIsSubmitting(false);
+        showAlert('Photo Upload Failed', uploadErr?.message || 'Could not upload your photo. Please try again or remove it.');
+        return;
+      }
+    }
+
+    const { error } = await createActivity({
+      id: activityId,
       host_user_id: user.id,
       category: activityCategory,
       skill_level: activityCategory === 'sport_gym' && skillLevel ? skillLevel : null,
@@ -99,37 +144,11 @@ export default function CreatePostScreen({ navigation }: any) {
       location_text: location,
       spots_total: spotsTotal,
       external_link: eventLink || null,
+      photo_url: photoUrl,
     });
 
-    // Upload photo if selected and activity was created
-    if (!error && newActivity && photoUri) {
-      try {
-        const fileExt = photoUri.split('.').pop()?.toLowerCase() || 'jpg';
-        const filePath = `${user.id}/${newActivity.id}.${fileExt}`;
-
-        // Fetch the local image as a blob
-        const response = await fetch(photoUri);
-        const blob = await response.blob();
-
-        const { error: uploadError } = await supabase.storage
-          .from('activity-photos')
-          .upload(filePath, blob, { contentType: `image/${fileExt}`, upsert: true });
-
-        if (!uploadError) {
-          const { data: urlData } = supabase.storage
-            .from('activity-photos')
-            .getPublicUrl(filePath);
-
-          // Update activity with photo URL
-          await supabase
-            .from('activities')
-            .update({ photo_url: urlData.publicUrl })
-            .eq('id', newActivity.id);
-        }
-      } catch (uploadErr) {
-        console.warn('Photo upload failed:', uploadErr);
-        showAlert('Photo Upload Failed', 'Your activity was created but the photo could not be uploaded. You can try editing the activity to add a photo later.');
-      }
+    if (error && uploadedPath) {
+      await supabase.storage.from('activity-photos').remove([uploadedPath]);
     }
 
     setIsSubmitting(false);
@@ -160,9 +179,20 @@ export default function CreatePostScreen({ navigation }: any) {
       quality: 0.8,
     });
 
-    if (!result.canceled && result.assets[0]) {
-      setPhotoUri(result.assets[0].uri);
+    if (result.canceled || !result.assets[0]) return;
+
+    const asset = result.assets[0];
+    const mime = asset.mimeType?.toLowerCase();
+    if (mime && !ALLOWED_PHOTO_MIME.includes(mime)) {
+      showAlert('Unsupported Format', 'Please choose a JPG, PNG, or WebP image.');
+      return;
     }
+    if (asset.fileSize && asset.fileSize > MAX_PHOTO_BYTES) {
+      showAlert('Photo Too Large', 'Please choose an image under 5 MB.');
+      return;
+    }
+
+    setPhotoUri(asset.uri);
   };
 
   const onDateChange = (_event: any, date?: Date) => {
